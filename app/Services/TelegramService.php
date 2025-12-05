@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\DTOs\TelegramUpdateDTO;
+use App\Exceptions\TelegramException;
 use App\Models\TelegramUser;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +15,13 @@ class TelegramService
 
     public function __construct()
     {
-        $this->token = config('telegram.bot_token');
+        $token = config('telegram.bot_token');
+        
+        if (empty($token)) {
+            throw TelegramException::invalidToken();
+        }
+        
+        $this->token = $token;
         $this->apiUrl = config('telegram.api_url') . $this->token;
     }
 
