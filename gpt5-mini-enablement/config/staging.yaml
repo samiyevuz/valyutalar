@@ -1,0 +1,9 @@
+feature_flags:
+  gpt5_mini:
+    enabled: true
+    description: "Enable GPT-5 mini for all clients"
+    rollout_percentage: 100
+    clients: 
+      - "*"
+    conditions: 
+      - type: "always"

@@ -1,0 +1,21 @@
+database:
+  host: localhost
+  port: 3306
+  username: your_db_username
+  password: your_db_password
+  database: your_db_name
+
+api:
+  endpoint: https://api.yourservice.com
+  key: your_api_key
+
+featureFlags:
+  gpt5Mini: true
+
+logging:
+  level: info
+  file: /var/log/gpt5-mini-enablement.log
+
+clients:
+  defaultLimit: 100
+  premiumLimit: 1000

@@ -1,59 +1,296 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 💱 Telegram Financial Assistant Bot
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Production-ready Laravel 11 Telegram bot for currency exchange rates, conversions, and financial alerts. Supports Uzbek, Russian, and English languages.
 
-## About Laravel
+## 🌟 Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- 💱 **Real-time Currency Rates** - Get live exchange rates from Central Bank of Uzbekistan (CBU)
+- 🔄 **Currency Converter** - Convert between USD, EUR, RUB, UZS, GBP, CNY with natural language parsing
+- 📊 **Historical Analytics** - View 7-day, 30-day, and 1-year rate history with charts
+- 🏦 **Bank Rates** - Compare exchange rates from major Uzbek banks
+- 🔔 **Price Alerts** - Set alerts for target exchange rates
+- 📬 **Daily Digest** - Receive morning briefings with rate updates
+- 🌍 **Multi-language** - Full support for Uzbek, Russian, and English
+- 🔒 **Secure Webhook** - IP whitelisting and secret token validation
+- ⚡ **Queue-based** - Asynchronous message processing
+- 📈 **Trend Analysis** - Track currency trends and changes
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📋 Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.2+
+- Laravel 11
+- MySQL 5.7+ / MariaDB 10.3+
+- Composer
+- Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
 
-## Learning Laravel
+## 🚀 Installation
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 1. Clone and Install Dependencies
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+git clone <repository-url>
+cd valyutalar
+composer install
+npm install
+```
 
-## Laravel Sponsors
+### 2. Environment Configuration
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Copy `.env.example` to `.env`:
 
-### Premium Partners
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Edit `.env` and configure:
 
-## Contributing
+```env
+# Telegram Configuration
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_BOT_USERNAME=your_bot_username
+TELEGRAM_WEBHOOK_URL=https://yourdomain.com/telegram/webhook
+TELEGRAM_SECRET_TOKEN=your_secret_token_for_webhook_validation
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# Database
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=valyutalar
+DB_USERNAME=root
+DB_PASSWORD=
 
-## Code of Conduct
+# Queue
+QUEUE_CONNECTION=database
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Currency API (optional)
+CURRENCY_API_PROVIDER=cbu
+EXCHANGERATE_API_KEY=your_api_key_if_needed
+```
 
-## Security Vulnerabilities
+### 3. Database Setup
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan migrate
+php artisan db:seed  # Optional: seed test data
+```
 
-## License
+### 4. Set Up Webhook
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan telegram:set-webhook
+```
+
+This command will:
+- Set the webhook URL in Telegram
+- Register bot commands for all languages
+- Verify webhook status
+
+### 5. Start Queue Worker
+
+```bash
+php artisan queue:work
+```
+
+Or use Laravel Horizon (if installed):
+
+```bash
+php artisan horizon
+```
+
+### 6. Configure Cron Jobs
+
+Add to your crontab (`crontab -e`):
+
+```bash
+* * * * * cd /path-to-project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+## 📖 Usage
+
+### Bot Commands
+
+- `/start` - Start the bot and select language
+- `/help` - Show help message
+- `/rate` - View exchange rates
+- `/convert` - Convert currency (e.g., "100 USD" or "100 USD to UZS")
+- `/history` - View rate history with charts
+- `/banks` - Compare bank exchange rates
+- `/alerts` - Manage price alerts
+- `/profile` - View and edit your profile
+
+### Natural Language Conversion
+
+The bot understands natural language:
+
+```
+100 USD
+100 USD to UZS
+100 USD -> UZS
+150000 UZS to USD
+```
+
+### Creating Alerts
+
+```
+USD > 12500
+EUR < 14000
+RUB > 150
+```
+
+### API Endpoints
+
+The bot also provides REST API endpoints:
+
+```
+GET /api/v1/rates
+GET /api/v1/rates/{currency}
+GET /api/v1/convert?from=USD&to=UZS&amount=100
+GET /api/v1/history/{currency}?days=30
+GET /api/v1/banks?currency=USD
+```
+
+## 🏗️ Architecture
+
+### Project Structure
+
+```
+app/
+├── Actions/Telegram/          # Command handlers
+├── Builders/Keyboard/          # Keyboard builders
+├── Console/Commands/           # Artisan commands
+├── DTOs/                       # Data Transfer Objects
+├── Enums/                      # Language, Currency enums
+├── Exceptions/                 # Custom exceptions
+├── Http/
+│   ├── Controllers/            # Webhook & API controllers
+│   └── Middleware/             # Webhook validation
+├── Jobs/                       # Queue jobs
+├── Models/                     # Eloquent models
+└── Services/                   # Business logic services
+```
+
+### Key Components
+
+- **TelegramService** - Handles all Telegram API interactions
+- **CurrencyService** - Fetches and caches currency rates
+- **AlertService** - Manages price alerts and notifications
+- **BankRatesService** - Aggregates bank exchange rates
+- **ChartService** - Generates rate history charts
+- **ConversionParser** - Parses natural language conversions
+
+## 🧪 Testing
+
+```bash
+php artisan test
+```
+
+Run specific test suites:
+
+```bash
+php artisan test --filter CurrencyServiceTest
+php artisan test --filter TelegramServiceTest
+php artisan test --filter AlertServiceTest
+```
+
+## 📝 Scheduled Tasks
+
+The following tasks run automatically:
+
+- **Check Alerts** - Every 30 minutes (`telegram:check-alerts`)
+- **Send Daily Digest** - Daily at 9:00 AM Tashkent time (`telegram:send-digest`)
+- **Fetch Currency Rates** - Every hour (`telegram:fetch-rates`)
+- **Fetch Bank Rates** - Every 2 hours (`telegram:fetch-bank-rates`)
+
+## 🔒 Security
+
+- **Webhook Validation** - Secret token validation
+- **IP Whitelisting** - Only Telegram IP ranges allowed
+- **Rate Limiting** - Prevents spam and abuse
+- **Input Sanitization** - All user inputs are validated
+
+## 🌍 Localization
+
+All bot messages are localized in:
+
+- `resources/lang/en/bot.php` - English
+- `resources/lang/ru/bot.php` - Russian
+- `resources/lang/uz/bot.php` - Uzbek
+
+Users can switch languages via `/start` or `/profile`.
+
+## 📊 Database Schema
+
+### Tables
+
+- `telegram_users` - Bot users and preferences
+- `alerts` - Price alerts
+- `currency_rates` - Historical currency rates
+- `bank_rates` - Bank exchange rates
+- `conversion_histories` - User conversion history
+
+## 🛠️ Development
+
+### Adding New Commands
+
+1. Create action in `app/Actions/Telegram/`
+2. Register in `config/telegram.php`
+3. Add translations in language files
+4. Update help message
+
+### Adding New Languages
+
+1. Create `resources/lang/{code}/bot.php`
+2. Add language enum in `app/Enums/Language.php`
+3. Update language keyboard builder
+
+## 📦 Deployment
+
+### Production Checklist
+
+- [ ] Set `APP_ENV=production`
+- [ ] Set `APP_DEBUG=false`
+- [ ] Configure webhook URL
+- [ ] Set up SSL certificate
+- [ ] Configure queue workers
+- [ ] Set up cron jobs
+- [ ] Enable IP whitelisting
+- [ ] Set secret token
+- [ ] Configure database backups
+- [ ] Set up monitoring
+
+### Webhook Setup
+
+```bash
+php artisan telegram:set-webhook
+php artisan telegram:set-webhook --info  # Check status
+php artisan telegram:set-webhook --delete  # Remove webhook
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📄 License
+
+This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## 🙏 Acknowledgments
+
+- Central Bank of Uzbekistan (CBU) for providing free currency API
+- Laravel Framework
+- Telegram Bot API
+
+## 📞 Support
+
+For issues and questions:
+- Open an issue on GitHub
+- Contact: [your-email@example.com]
+
+---
+
+Made with ❤️ using Laravel 11

@@ -1,0 +1,116 @@
+<?php
+
+namespace App\Actions\Telegram;
+
+use App\Builders\Keyboard\CurrencyKeyboard;
+use App\Builders\Keyboard\MainMenuKeyboard;
+use App\DTOs\TelegramUpdateDTO;
+use App\Models\TelegramUser;
+use App\Services\ChartService;
+use App\Services\CurrencyService;
+use App\Services\TelegramService;
+
+class HandleHistoryAction
+{
+    public function __construct(
+        private CurrencyService $currencyService,
+        private ChartService $chartService,
+    ) {}
+
+    public function execute(TelegramUpdateDTO $update, TelegramUser $user, TelegramService $telegram): void
+    {
+        $args = $update->getCommandArgs();
+
+        if ($args) {
+            $parts = explode(' ', trim($args));
+            $currency = strtoupper($parts[0]);
+            $days = isset($parts[1]) ? (int) $parts[1] : 30;
+
+            $this->showHistory($update->getChatId(), $currency, $days, $user, $telegram);
+            return;
+        }
+
+        // Show currency selection
+        $telegram->sendMessage(
+            $update->getChatId(),
+            '📊 ' . __('bot.history.select_currency'),
+            CurrencyKeyboard::buildForHistory($user->language)
+        );
+    }
+
+    public function showHistory(
+        int $chatId,
+        string $currency,
+        int $days,
+        TelegramUser $user,
+        TelegramService $telegram
+    ): void {
+        // Send typing indicator
+        $telegram->sendChatAction($chatId, 'typing');
+
+        $rates = $this->currencyService->getHistoricalRates($currency, $days);
+        $trend = $this->currencyService->getTrend($currency, $days);
+
+        if ($rates->isEmpty()) {
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.history.no_data'),
+                CurrencyKeyboard::buildForHistory($user->language)
+            );
+            return;
+        }
+
+        // Generate chart URL
+        $chartUrl = $this->chartService->generateRateChart($rates, $currency, $days);
+
+        // Build caption
+        $caption = $this->buildCaption($currency, $days, $trend, $user->language);
+
+        // Send chart as photo
+        if ($chartUrl) {
+            $telegram->sendPhoto(
+                $chatId,
+                $chartUrl,
+                $caption,
+                CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+            );
+        } else {
+            // Fallback to text chart
+            $textChart = $this->chartService->generateTextChart($rates);
+            $telegram->sendMessage(
+                $chatId,
+                $caption . "\n\n" . $textChart,
+                CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+            );
+        }
+    }
+
+    private function buildCaption(string $currency, int $days, array $trend, string $lang): string
+    {
+        $trendEmoji = match ($trend['trend']) {
+            'up' => '📈',
+            'down' => '📉',
+            default => '➡️',
+        };
+
+        $trendText = match ($trend['trend']) {
+            'up' => __('bot.history.trend_up', locale: $lang),
+            'down' => __('bot.history.trend_down', locale: $lang),
+            default => __('bot.history.trend_stable', locale: $lang),
+        };
+
+        $lines = [
+            "📊 <b>{$currency}/UZS</b> - {$days} " . __('bot.history.days', locale: $lang),
+            '',
+            '📅 ' . __('bot.history.start', locale: $lang) . ': ' .
+            number_format($trend['oldest_rate'], 2, '.', ' ') . ' UZS',
+            '📅 ' . __('bot.history.end', locale: $lang) . ': ' .
+            number_format($trend['latest_rate'], 2, '.', ' ') . ' UZS',
+            '',
+            "{$trendEmoji} {$trendText}: <b>" . sprintf('%+.2f%%', $trend['change_percent']) . '</b>',
+        ];
+
+        return implode("\n", $lines);
+    }
+}
+

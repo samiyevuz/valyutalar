@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'telegram.webhook' => \App\Http\Middleware\ValidateTelegramWebhook::class,
+            'telegram.rate_limit' => \App\Http\Middleware\TelegramRateLimiter::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
