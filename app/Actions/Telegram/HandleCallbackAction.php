@@ -32,6 +32,19 @@ class HandleCallbackAction
         $chatId = $update->getChatId();
         $messageId = $update->getCallbackMessageId();
 
+        // Log callback for debugging
+        \Log::info('Callback execute started', [
+            'callback_data' => $callbackData,
+            'callback_id' => $callbackId,
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ]);
+
+        if (empty($callbackData)) {
+            \Log::error('Empty callback data');
+            return;
+        }
+
         // Parse callback data
         $parts = explode(':', $callbackData);
         $action = $parts[0] ?? '';
@@ -40,7 +53,14 @@ class HandleCallbackAction
         $param3 = $parts[3] ?? null;
 
         // Answer callback query first
-        $telegram->answerCallbackQuery($callbackId);
+        try {
+            $telegram->answerCallbackQuery($callbackId);
+        } catch (\Exception $e) {
+            \Log::error('Failed to answer callback query', [
+                'error' => $e->getMessage(),
+                'callback_id' => $callbackId,
+            ]);
+        }
 
         // Log callback for debugging
         \Log::info('Callback received', [
@@ -51,6 +71,8 @@ class HandleCallbackAction
         ]);
 
         try {
+            \Log::info('Executing callback action', ['action' => $action]);
+            
             match ($action) {
                 'lang' => $this->handleLanguageSelection($chatId, $messageId, $param1, $user, $telegram),
                 'menu' => $this->handleMenuNavigation($chatId, $messageId, $param1, $user, $telegram),
@@ -63,19 +85,28 @@ class HandleCallbackAction
                 'favorites' => $this->handleFavoritesAction($chatId, $messageId, $param1, $param2, $user, $telegram),
                 default => $this->handleUnknownAction($chatId, $action, $user, $telegram),
             };
+            
+            \Log::info('Callback action executed successfully', ['action' => $action]);
         } catch (\Exception $e) {
             \Log::error('Callback action error', [
                 'action' => $action,
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            $telegram->sendMessage(
-                $chatId,
-                '❌ ' . __('bot.errors.api_error', locale: $user->language),
-                MainMenuKeyboard::build($user->language)
-            );
+            try {
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+            } catch (\Exception $sendError) {
+                \Log::error('Failed to send error message', [
+                    'error' => $sendError->getMessage(),
+                ]);
+            }
         }
     }
 
@@ -115,6 +146,8 @@ class HandleCallbackAction
     ): void {
         $lang = $user->language;
 
+        \Log::info('Handling menu navigation', ['menu' => $menu, 'lang' => $lang]);
+
         match ($menu) {
             'main' => $this->showMainMenu($chatId, $messageId, $user, $telegram),
             'rates' => $telegram->sendMessage(
@@ -144,7 +177,7 @@ class HandleCallbackAction
                 $user,
                 $telegram
             ),
-            default => null,
+            default => \Log::warning('Unknown menu', ['menu' => $menu]),
         };
     }
 

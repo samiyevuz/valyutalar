@@ -39,17 +39,25 @@ class HandleRateAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        if ($currency === 'ALL') {
+        if ($currency === 'ALL' || $currency === 'all') {
             $this->sendAllRates($chatId, $user, $telegram);
             return;
         }
 
+        // Normalize currency code
+        $currency = strtoupper(trim($currency));
+
         $rate = $this->currencyService->getRate($currency);
 
         if (!$rate) {
+            \Log::warning('Currency rate not found', [
+                'currency' => $currency,
+                'user_id' => $user->id,
+            ]);
+
             $telegram->sendMessage(
                 $chatId,
-                '❌ ' . __('bot.errors.currency_not_found', ['currency' => $currency]),
+                '❌ ' . __('bot.errors.currency_not_found', ['currency' => $currency], $user->language),
                 MainMenuKeyboard::build($user->language)
             );
             return;

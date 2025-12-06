@@ -114,10 +114,19 @@ class BankRatesService
 
     public function formatBankRatesMessage(string $currency, string $lang): string
     {
+        // Ensure bank rates are fetched
+        $this->fetchAllBankRates();
+        
         $rates = $this->getBankRates($currency);
 
         if ($rates->isEmpty()) {
-            return __('bot.banks.no_data', locale: $lang);
+            // Try to fetch rates if empty
+            $this->refreshBankRates();
+            $rates = $this->getBankRates($currency);
+            
+            if ($rates->isEmpty()) {
+                return __('bot.banks.no_data', locale: $lang);
+            }
         }
 
         $lines = [

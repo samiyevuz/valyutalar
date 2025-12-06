@@ -39,6 +39,22 @@ class HandleBanksAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
+        // Normalize currency code
+        $currency = strtoupper(trim($currency));
+
+        // Send typing indicator
+        $telegram->sendChatAction($chatId, 'typing');
+
+        // Ensure bank rates are fetched
+        try {
+            $this->bankRatesService->fetchAllBankRates();
+        } catch (\Exception $e) {
+            \Log::error('Failed to fetch bank rates', [
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         $message = $this->bankRatesService->formatBankRatesMessage($currency, $user->language);
 
         $telegram->sendMessage(

@@ -33,6 +33,9 @@ class TelegramService
         bool $disableWebPagePreview = true,
         ?int $replyToMessageId = null
     ): array {
+        // Clean text - replace escaped newlines with actual newlines
+        $text = $this->cleanText($text);
+
         $payload = [
             'chat_id' => $chatId,
             'text' => $text,
@@ -82,6 +85,9 @@ class TelegramService
         ?array $replyMarkup = null,
         string $parseMode = 'HTML'
     ): array {
+        // Clean text - replace escaped newlines with actual newlines
+        $text = $this->cleanText($text);
+
         $payload = [
             'chat_id' => $chatId,
             'message_id' => $messageId,
@@ -265,6 +271,18 @@ class TelegramService
 
             return ['ok' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    private function cleanText(string $text): string
+    {
+        // Replace escaped newlines with actual newlines
+        $text = str_replace('\\n', "\n", $text);
+        
+        // Remove any invalid HTML tags that might cause parsing errors
+        // Telegram HTML only supports: <b>, <i>, <u>, <s>, <code>, <pre>, <a>
+        // We'll keep the text as is, but ensure proper newline handling
+        
+        return $text;
     }
 
     private function sanitizePayload(array $payload): array

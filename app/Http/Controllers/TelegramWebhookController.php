@@ -139,8 +139,23 @@ class TelegramWebhookController extends Controller
         try {
             // Handle callback queries
             if ($update->isCallbackQuery()) {
-                $this->forceLog('Processing callback query');
-                app(HandleCallbackAction::class)->execute($update, $user, $this->telegramService);
+                $callbackData = $update->getCallbackData();
+                $this->forceLog('Processing callback query', [
+                    'callback_data' => $callbackData,
+                    'callback_id' => $update->getCallbackQueryId(),
+                ]);
+                
+                try {
+                    app(HandleCallbackAction::class)->execute($update, $user, $this->telegramService);
+                    $this->forceLog('Callback query processed successfully');
+                } catch (\Exception $e) {
+                    $this->forceLog('ERROR in callback handler', [
+                        'error' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                        'trace' => substr($e->getTraceAsString(), 0, 500),
+                    ]);
+                }
                 return;
             }
 
@@ -161,6 +176,7 @@ class TelegramWebhookController extends Controller
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 500),
             ]);
         }
     }

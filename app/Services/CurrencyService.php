@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 class CurrencyService
 {
-    private string $cbuUrl = 'https://cbu.uz/ru/arkhiv-kursov-valyut/json/all/';
+    private string $cbuUrl = 'https://cbu.uz/ru/arkhiv-kursov-valyut/json/';
 
     public function getLiveRates(): array
     {
@@ -204,27 +204,55 @@ class CurrencyService
             $response = Http::timeout(10)->get($this->cbuUrl);
 
             if (!$response->successful()) {
-                Log::error('CBU API error', ['status' => $response->status()]);
+                Log::error('CBU API error', [
+                    'status' => $response->status(),
+                    'url' => $this->cbuUrl,
+                    'body' => substr($response->body(), 0, 200),
+                ]);
                 return $this->getFallbackRates();
             }
 
             $data = $response->json();
 
-            if (!is_array($data)) {
+            if (!is_array($data) || empty($data)) {
+                Log::warning('CBU API returned invalid data', [
+                    'type' => gettype($data),
+                    'count' => is_array($data) ? count($data) : 0,
+                ]);
                 return $this->getFallbackRates();
             }
 
             $rates = [];
 
             foreach ($data as $item) {
-                $rate = CurrencyRateDTO::fromCbuData($item);
-                $rates[] = $rate;
-                $this->storeRate($rate);
+                if (!isset($item['Ccy']) || !isset($item['Rate'])) {
+                    continue;
+                }
+
+                try {
+                    $rate = CurrencyRateDTO::fromCbuData($item);
+                    $rates[] = $rate;
+                    $this->storeRate($rate);
+                } catch (\Exception $e) {
+                    Log::warning('Failed to parse CBU rate', [
+                        'item' => $item,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            if (empty($rates)) {
+                Log::warning('No rates parsed from CBU API');
+                return $this->getFallbackRates();
             }
 
             return $rates;
         } catch (\Exception $e) {
-            Log::error('CBU API exception', ['error' => $e->getMessage()]);
+            Log::error('CBU API exception', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
             return $this->getFallbackRates();
         }
     }

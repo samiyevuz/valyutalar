@@ -18,7 +18,7 @@ class HandleStartAction
             return;
         }
 
-        // Show welcome message with main menu
+        // Always show welcome message when /start is called
         $this->showWelcomeMessage($update, $user, $telegram);
     }
 

@@ -71,6 +71,7 @@ return [
         'best_buy' => 'Eng yaxshi sotib olish: :bank - :rate so\'m',
         'best_sell' => 'Eng yaxshi sotish: :bank - :rate so\'m',
         'no_data' => 'Bank kurslari hozircha mavjud emas.',
+        'updated_at' => ':time da yangilandi',
     ],
     
     'alerts' => [
@@ -112,18 +113,18 @@ return [
     ],
     
     'help' => [
-        'message' => '📖 <b>Bot buyruqlari:</b>\n\n' .
-            '/start - Botni ishga tushirish\n' .
-            '/rate - Valyuta kurslari\n' .
-            '/convert - Valyutani konvertatsiya qilish\n' .
-            '/history - Kurslar tarixi\n' .
-            '/banks - Bank kurslari\n' .
-            '/alerts - Kurs ogohlantirishlarini boshqarish\n' .
-            '/profile - Sizning profilingiz\n\n' .
-            '<b>Tezkor konvertatsiya:</b>\n' .
-            'Faqat yuboring: 100 USD yoki 100 USD UZS ga\n\n' .
-            '<b>Ogohlantirish yaratish:</b>\n' .
-            'Yuboring: USD > 12500 yoki EUR < 14000',
+        'message' => "📖 <b>Bot buyruqlari:</b>\n\n" .
+            "/start - Botni ishga tushirish\n" .
+            "/rate - Valyuta kurslari\n" .
+            "/convert - Valyutani konvertatsiya qilish\n" .
+            "/history - Kurslar tarixi\n" .
+            "/banks - Bank kurslari\n" .
+            "/alerts - Kurs ogohlantirishlarini boshqarish\n" .
+            "/profile - Sizning profilingiz\n\n" .
+            "<b>Tezkor konvertatsiya:</b>\n" .
+            "Faqat yuboring: 100 USD yoki 100 USD UZS ga\n\n" .
+            "<b>Ogohlantirish yaratish:</b>\n" .
+            "Yuboring: USD > 12500 yoki EUR < 14000",
     ],
     
     'errors' => [

@@ -71,6 +71,7 @@ return [
         'best_buy' => 'Best Buy: :bank - :rate UZS',
         'best_sell' => 'Best Sell: :bank - :rate UZS',
         'no_data' => 'Bank rates are not available at the moment.',
+        'updated_at' => 'Updated at :time',
     ],
     
     'alerts' => [
@@ -112,18 +113,18 @@ return [
     ],
     
     'help' => [
-        'message' => '📖 <b>Bot Commands:</b>\n\n' .
-            '/start - Start the bot\n' .
-            '/rate - View exchange rates\n' .
-            '/convert - Convert currency\n' .
-            '/history - View rate history\n' .
-            '/banks - Bank exchange rates\n' .
-            '/alerts - Manage price alerts\n' .
-            '/profile - Your profile\n\n' .
-            '<b>Quick Conversion:</b>\n' .
-            'Just send: 100 USD or 100 USD to UZS\n\n' .
-            '<b>Create Alert:</b>\n' .
-            'Send: USD > 12500 or EUR < 14000',
+        'message' => "📖 <b>Bot Commands:</b>\n\n" .
+            "/start - Start the bot\n" .
+            "/rate - View exchange rates\n" .
+            "/convert - Convert currency\n" .
+            "/history - View rate history\n" .
+            "/banks - Bank exchange rates\n" .
+            "/alerts - Manage price alerts\n" .
+            "/profile - Your profile\n\n" .
+            "<b>Quick Conversion:</b>\n" .
+            "Just send: 100 USD or 100 USD to UZS\n\n" .
+            "<b>Create Alert:</b>\n" .
+            "Send: USD > 12500 or EUR < 14000",
         'title' => '📖 Help',
     ],
     
