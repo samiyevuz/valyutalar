@@ -7,9 +7,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Telegram Webhook
+// Telegram Webhook - NO MIDDLEWARE for debugging
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])
-    ->name('telegram.webhook');
+    ->name('telegram.webhook')
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
 
 // Test endpoint
 Route::get('/telegram/test', function () {

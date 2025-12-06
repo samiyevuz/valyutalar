@@ -12,14 +12,33 @@ class HandleStartAction
 {
     public function execute(TelegramUpdateDTO $update, TelegramUser $user, TelegramService $telegram): void
     {
-        // If user is new or language not set, show language selection
-        if ($user->wasRecentlyCreated || !$user->language) {
-            $this->showLanguageSelection($update, $telegram);
-            return;
-        }
+        \Log::info('HandleStartAction execute', [
+            'chat_id' => $update->getChatId(),
+            'user_id' => $user->id,
+            'was_recently_created' => $user->wasRecentlyCreated,
+            'language' => $user->language,
+        ]);
 
-        // Always show welcome message when /start is called
-        $this->showWelcomeMessage($update, $user, $telegram);
+        try {
+            // If user is new or language not set, show language selection
+            if ($user->wasRecentlyCreated || !$user->language) {
+                \Log::info('Showing language selection');
+                $this->showLanguageSelection($update, $telegram);
+                return;
+            }
+
+            // Always show welcome message when /start is called
+            \Log::info('Showing welcome message');
+            $this->showWelcomeMessage($update, $user, $telegram);
+        } catch (\Exception $e) {
+            \Log::error('HandleStartAction error', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 1000),
+            ]);
+            throw $e;
+        }
     }
 
     private function showLanguageSelection(TelegramUpdateDTO $update, TelegramService $telegram): void
@@ -38,22 +57,54 @@ class HandleStartAction
 
     private function showWelcomeMessage(TelegramUpdateDTO $update, TelegramUser $user, TelegramService $telegram): void
     {
-        $name = $user->getDisplayName();
+        try {
+            $name = $user->getDisplayName();
+            $chatId = $update->getChatId();
+            $lang = $user->language;
 
-        $message = __('bot.welcome', ['name' => $name]) . "\n\n";
-        $message .= "💱 " . __('bot.menu.rates') . "\n";
-        $message .= "💱 " . __('bot.menu.convert') . "\n";
-        $message .= "🏦 " . __('bot.menu.banks') . "\n";
-        $message .= "📊 " . __('bot.menu.history') . "\n";
-        $message .= "🔔 " . __('bot.menu.alerts') . "\n";
-        $message .= "👤 " . __('bot.menu.profile') . "\n\n";
-        $message .= __('bot.help.message');
+            \Log::info('Building welcome message', [
+                'chat_id' => $chatId,
+                'name' => $name,
+                'language' => $lang,
+            ]);
 
-        $telegram->sendMessage(
-            $update->getChatId(),
-            $message,
-            MainMenuKeyboard::build($user->language)
-        );
+            $message = __('bot.welcome', ['name' => $name], $lang) . "\n\n";
+            $message .= "💱 " . __('bot.menu.rates', locale: $lang) . "\n";
+            $message .= "🔄 " . __('bot.menu.convert', locale: $lang) . "\n";
+            $message .= "🏦 " . __('bot.menu.banks', locale: $lang) . "\n";
+            $message .= "📊 " . __('bot.menu.history', locale: $lang) . "\n";
+            $message .= "🔔 " . __('bot.menu.alerts', locale: $lang) . "\n";
+            $message .= "👤 " . __('bot.menu.profile', locale: $lang) . "\n\n";
+            $message .= __('bot.help.message', locale: $lang);
+
+            \Log::info('Welcome message built', [
+                'message_length' => strlen($message),
+                'message_preview' => substr($message, 0, 100),
+            ]);
+
+            $keyboard = MainMenuKeyboard::build($lang);
+            \Log::info('Keyboard built', ['keyboard' => $keyboard]);
+
+            $result = $telegram->sendMessage(
+                $chatId,
+                $message,
+                $keyboard
+            );
+
+            \Log::info('Welcome message sent', [
+                'chat_id' => $chatId,
+                'result_ok' => $result['ok'] ?? false,
+                'result' => $result,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in showWelcomeMessage', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 1000),
+            ]);
+            throw $e;
+        }
     }
 }
 

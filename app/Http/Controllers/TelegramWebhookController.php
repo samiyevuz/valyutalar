@@ -31,11 +31,25 @@ class TelegramWebhookController extends Controller
             'ip' => $request->ip(),
             'method' => $request->method(),
             'url' => $request->fullUrl(),
+            'content_type' => $request->header('Content-Type'),
+            'user_agent' => $request->header('User-Agent'),
         ]);
 
+        // Also log to PHP error log immediately
+        error_log('[WEBHOOK] Request received: ' . $request->method() . ' ' . $request->fullUrl());
+
         try {
+            $rawBody = $request->getContent();
+            $this->forceLog('Raw request body', ['body_length' => strlen($rawBody), 'body_preview' => substr($rawBody, 0, 200)]);
+            
             $data = $request->all();
-            $this->forceLog('Request data received', ['has_data' => !empty($data)]);
+            $this->forceLog('Request data received', [
+                'has_data' => !empty($data),
+                'data_keys' => array_keys($data),
+                'update_id' => $data['update_id'] ?? 'none',
+            ]);
+            
+            error_log('[WEBHOOK] Data: ' . json_encode(['has_data' => !empty($data), 'update_id' => $data['update_id'] ?? 'none']));
 
             if (empty($data)) {
                 $this->forceLog('Empty data - returning');
@@ -83,15 +97,25 @@ class TelegramWebhookController extends Controller
             $this->processUpdate($update, $user);
 
             $this->forceLog('=== WEBHOOK SUCCESS ===');
+            error_log('[WEBHOOK] Success');
             return response()->json(['ok' => true]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $errorMsg = $e->getMessage();
+            $errorFile = $e->getFile();
+            $errorLine = $e->getLine();
+            $errorTrace = substr($e->getTraceAsString(), 0, 2000);
+            
             $this->forceLog('=== WEBHOOK EXCEPTION ===', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => substr($e->getTraceAsString(), 0, 1000),
+                'error' => $errorMsg,
+                'file' => $errorFile,
+                'line' => $errorLine,
+                'trace' => $errorTrace,
+                'class' => get_class($e),
             ]);
+            
+            error_log('[WEBHOOK] EXCEPTION: ' . $errorMsg . ' in ' . $errorFile . ':' . $errorLine);
+            error_log('[WEBHOOK] TRACE: ' . substr($errorTrace, 0, 500));
 
             return response()->json(['ok' => true]);
         }
@@ -119,11 +143,13 @@ class TelegramWebhookController extends Controller
         );
 
         // Try multiple methods to write
+        $written = false;
         try {
-            file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+            $result = @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+            $written = $result !== false;
         } catch (\Exception $e) {
             // Try error_log as fallback
-            error_log($logEntry);
+            @error_log($logEntry);
         }
         
         // Also try Laravel Log
@@ -131,6 +157,11 @@ class TelegramWebhookController extends Controller
             Log::info($message, $context);
         } catch (\Exception $e) {
             // Ignore
+        }
+        
+        // Also try PHP error_log
+        if (!$written) {
+            @error_log($logEntry);
         }
     }
 
@@ -190,12 +221,25 @@ class TelegramWebhookController extends Controller
             $this->forceLog('Handling command', [
                 'command' => $command,
                 'has_handler' => isset($commands[$command]),
+                'available_commands' => array_keys($commands),
             ]);
 
             if (isset($commands[$command])) {
-                $action = app($commands[$command]);
-                $action->execute($update, $user, $this->telegramService);
-                $this->forceLog('Command executed', ['command' => $command]);
+                try {
+                    $action = app($commands[$command]);
+                    $this->forceLog('Action created', ['action_class' => get_class($action)]);
+                    
+                    $action->execute($update, $user, $this->telegramService);
+                    $this->forceLog('Command executed successfully', ['command' => $command]);
+                } catch (\Exception $actionError) {
+                    $this->forceLog('ERROR executing action', [
+                        'command' => $command,
+                        'error' => $actionError->getMessage(),
+                        'file' => $actionError->getFile(),
+                        'line' => $actionError->getLine(),
+                        'trace' => substr($actionError->getTraceAsString(), 0, 1000),
+                    ]);
+                }
             } else {
                 $this->forceLog('Command not found', ['command' => $command]);
             }
@@ -204,6 +248,7 @@ class TelegramWebhookController extends Controller
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 1000),
             ]);
         }
     }

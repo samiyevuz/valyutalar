@@ -17,12 +17,23 @@ class TelegramService
     {
         $token = config('telegram.bot_token');
         
+        Log::info('TelegramService constructor', [
+            'token_set' => !empty($token),
+            'token_length' => $token ? strlen($token) : 0,
+            'api_url' => config('telegram.api_url'),
+        ]);
+        
         if (empty($token)) {
+            Log::error('Telegram bot token is empty');
             throw TelegramException::invalidToken();
         }
         
         $this->token = $token;
         $this->apiUrl = config('telegram.api_url') . $this->token;
+        
+        Log::info('TelegramService initialized', [
+            'api_url' => $this->apiUrl,
+        ]);
     }
 
     public function sendMessage(
@@ -33,25 +44,49 @@ class TelegramService
         bool $disableWebPagePreview = true,
         ?int $replyToMessageId = null
     ): array {
-        // Clean text - replace escaped newlines with actual newlines
-        $text = $this->cleanText($text);
-
-        $payload = [
+        Log::info('TelegramService::sendMessage', [
             'chat_id' => $chatId,
-            'text' => $text,
-            'parse_mode' => $parseMode,
-            'disable_web_page_preview' => $disableWebPagePreview,
-        ];
+            'text_length' => strlen($text),
+            'has_reply_markup' => !empty($replyMarkup),
+        ]);
 
-        if ($replyMarkup) {
-            $payload['reply_markup'] = json_encode($replyMarkup);
+        try {
+            // Clean text - replace escaped newlines with actual newlines
+            $text = $this->cleanText($text);
+
+            $payload = [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => $parseMode,
+                'disable_web_page_preview' => $disableWebPagePreview,
+            ];
+
+            if ($replyMarkup) {
+                $payload['reply_markup'] = json_encode($replyMarkup);
+            }
+
+            if ($replyToMessageId) {
+                $payload['reply_to_message_id'] = $replyToMessageId;
+            }
+
+            $result = $this->request('sendMessage', $payload);
+            
+            Log::info('TelegramService::sendMessage result', [
+                'chat_id' => $chatId,
+                'ok' => $result['ok'] ?? false,
+                'error' => $result['error'] ?? null,
+            ]);
+            
+            return $result;
+        } catch (\Exception $e) {
+            Log::error('TelegramService::sendMessage exception', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            throw $e;
         }
-
-        if ($replyToMessageId) {
-            $payload['reply_to_message_id'] = $replyToMessageId;
-        }
-
-        return $this->request('sendMessage', $payload);
     }
 
     public function sendPhoto(
@@ -247,26 +282,48 @@ class TelegramService
 
     private function request(string $method, array $payload = []): array
     {
+        $url = "{$this->apiUrl}/{$method}";
+        
+        Log::info("Telegram API request", [
+            'method' => $method,
+            'url' => $url,
+            'payload_keys' => array_keys($payload),
+        ]);
+
         try {
             $response = Http::timeout(30)
                 ->retry(3, 100)
-                ->post("{$this->apiUrl}/{$method}", $payload);
+                ->post($url, $payload);
 
             $data = $response->json();
+            $statusCode = $response->status();
+
+            Log::info("Telegram API response", [
+                'method' => $method,
+                'status' => $statusCode,
+                'ok' => $data['ok'] ?? false,
+                'error_code' => $data['error_code'] ?? null,
+                'description' => $data['description'] ?? null,
+            ]);
 
             if (!$response->successful() || !($data['ok'] ?? false)) {
                 Log::error("Telegram API error: {$method}", [
                     'payload' => $this->sanitizePayload($payload),
                     'response' => $data,
-                    'status' => $response->status(),
+                    'status' => $statusCode,
+                    'body' => $response->body(),
                 ]);
             }
 
             return $data;
         } catch (\Exception $e) {
             Log::error("Telegram API exception: {$method}", [
+                'url' => $url,
                 'payload' => $this->sanitizePayload($payload),
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 500),
             ]);
 
             return ['ok' => false, 'error' => $e->getMessage()];
