@@ -58,8 +58,17 @@ class TelegramWebhookController extends Controller
 
             $this->forceLog('Creating DTO', ['update_id' => $data['update_id'] ?? 'none']);
             
-            $update = TelegramUpdateDTO::fromArray($data);
-            $this->forceLog('DTO created successfully');
+            try {
+                $update = TelegramUpdateDTO::fromArray($data);
+                $this->forceLog('DTO created successfully');
+            } catch (\Exception $e) {
+                $this->forceLog('ERROR creating DTO', [
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]);
+                return response()->json(['ok' => true]);
+            }
 
             // Get or create user
             try {
@@ -75,6 +84,7 @@ class TelegramWebhookController extends Controller
                     'error' => $e->getMessage(),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
+                    'trace' => substr($e->getTraceAsString(), 0, 500),
                 ]);
                 return response()->json(['ok' => true]);
             }
@@ -286,7 +296,7 @@ class TelegramWebhookController extends Controller
                 $this->forceLog('Alert created');
                 $this->telegramService->sendMessage(
                     $update->getChatId(),
-                    '✅ ' . __('bot.alerts.created') . "\n\n" . $alert->getDescription()
+                    '✅ ' . __('bot.alerts.created', locale: $user->language) . "\n\n" . $alert->getDescription()
                 );
                 return;
             }
@@ -324,7 +334,7 @@ class TelegramWebhookController extends Controller
         if ($amount <= 0) {
             $this->telegramService->sendMessage(
                 $chatId,
-                '❌ ' . __('bot.errors.invalid_amount')
+                '❌ ' . __('bot.errors.invalid_amount', locale: $user->language)
             );
             return;
         }
@@ -350,7 +360,7 @@ class TelegramWebhookController extends Controller
         if ($amount <= 0) {
             $this->telegramService->sendMessage(
                 $chatId,
-                '❌ ' . __('bot.errors.invalid_amount')
+                '❌ ' . __('bot.errors.invalid_amount', locale: $user->language)
             );
             return;
         }
@@ -361,7 +371,7 @@ class TelegramWebhookController extends Controller
 
         $this->telegramService->sendMessage(
             $chatId,
-            '✅ ' . __('bot.alerts.created') . "\n\n🔔 " . $alert->getDescription()
+            '✅ ' . __('bot.alerts.created', locale: $user->language) . "\n\n🔔 " . $alert->getDescription()
         );
     }
 

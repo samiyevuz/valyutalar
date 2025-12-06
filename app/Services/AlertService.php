@@ -195,7 +195,7 @@ class AlertService
         }
 
         $lines[] = '';
-        $lines[] = '<i>' . __('bot.alerts.hint') . '</i>';
+        $lines[] = '<i>' . __('bot.alerts.instructions', locale: $user->language) . '</i>';
 
         return implode("\n", $lines);
     }

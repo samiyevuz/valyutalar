@@ -15,16 +15,19 @@ class TelegramService
 
     public function __construct()
     {
-        $token = config('telegram.bot_token');
+        $token = env('TELEGRAM_BOT_TOKEN') ?: config('telegram.bot_token');
         
         Log::info('TelegramService constructor', [
             'token_set' => !empty($token),
             'token_length' => $token ? strlen($token) : 0,
             'api_url' => config('telegram.api_url'),
+            'env_token_set' => !empty(env('TELEGRAM_BOT_TOKEN')),
         ]);
         
         if (empty($token)) {
-            Log::error('Telegram bot token is empty');
+            $error = 'Telegram bot token is empty. Please set TELEGRAM_BOT_TOKEN in .env file.';
+            Log::error($error);
+            error_log('[TELEGRAM] ERROR: ' . $error);
             throw TelegramException::invalidToken();
         }
         
@@ -32,7 +35,7 @@ class TelegramService
         $this->apiUrl = config('telegram.api_url') . $this->token;
         
         Log::info('TelegramService initialized', [
-            'api_url' => $this->apiUrl,
+            'api_url' => substr($this->apiUrl, 0, 50) . '...',
         ]);
     }
 
