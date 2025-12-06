@@ -42,18 +42,41 @@ class HandleCallbackAction
         // Answer callback query first
         $telegram->answerCallbackQuery($callbackId);
 
-        match ($action) {
-            'lang' => $this->handleLanguageSelection($chatId, $messageId, $param1, $user, $telegram),
-            'menu' => $this->handleMenuNavigation($chatId, $messageId, $param1, $user, $telegram),
-            'rate' => $this->handleRateSelection($chatId, $param1, $user, $telegram),
-            'banks' => $this->handleBanksSelection($chatId, $param1, $user, $telegram),
-            'history' => $this->handleHistorySelection($chatId, $param1, $param2, $user, $telegram),
-            'convert' => $this->handleConvertSelection($chatId, $param1, $param2, $user, $telegram),
-            'alerts' => $this->handleAlertsAction($chatId, $messageId, $param1, $param2, $param3, $user, $telegram),
-            'profile' => $this->handleProfileAction($chatId, $messageId, $param1, $user, $telegram),
-            'favorites' => $this->handleFavoritesAction($chatId, $messageId, $param1, $param2, $user, $telegram),
-            default => null,
-        };
+        // Log callback for debugging
+        \Log::info('Callback received', [
+            'action' => $action,
+            'param1' => $param1,
+            'param2' => $param2,
+            'callback_data' => $callbackData,
+        ]);
+
+        try {
+            match ($action) {
+                'lang' => $this->handleLanguageSelection($chatId, $messageId, $param1, $user, $telegram),
+                'menu' => $this->handleMenuNavigation($chatId, $messageId, $param1, $user, $telegram),
+                'rate' => $this->handleRateSelection($chatId, $param1, $user, $telegram),
+                'banks' => $this->handleBanksSelection($chatId, $param1, $user, $telegram),
+                'history' => $this->handleHistorySelection($chatId, $param1, $param2, $user, $telegram),
+                'convert' => $this->handleConvertSelection($chatId, $param1, $param2, $user, $telegram),
+                'alerts' => $this->handleAlertsAction($chatId, $messageId, $param1, $param2, $param3, $user, $telegram),
+                'profile' => $this->handleProfileAction($chatId, $messageId, $param1, $user, $telegram),
+                'favorites' => $this->handleFavoritesAction($chatId, $messageId, $param1, $param2, $user, $telegram),
+                default => $this->handleUnknownAction($chatId, $action, $user, $telegram),
+            };
+        } catch (\Exception $e) {
+            \Log::error('Callback action error', [
+                'action' => $action,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function handleLanguageSelection(
@@ -68,8 +91,8 @@ class HandleCallbackAction
 
         app()->setLocale($langCode);
 
-        $message = "✅ " . __('bot.language.changed', ['language' => $language->label()]) . "\n\n";
-        $message .= __('bot.welcome.greeting', ['name' => $user->getDisplayName()]);
+        $message = "✅ " . __('bot.language.changed', ['language' => $language->label()], $langCode) . "\n\n";
+        $message .= __('bot.welcome', ['name' => $user->getDisplayName()], $langCode);
 
         if ($messageId) {
             $telegram->editMessageText(
@@ -131,7 +154,15 @@ class HandleCallbackAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        $message = "🏠 " . __('bot.menu.main_title', locale: $user->language);
+        $name = $user->getDisplayName();
+        $message = __('bot.welcome', ['name' => $name], $user->language) . "\n\n";
+        $message .= "💱 " . __('bot.menu.rates', locale: $user->language) . "\n";
+        $message .= "💱 " . __('bot.menu.convert', locale: $user->language) . "\n";
+        $message .= "🏦 " . __('bot.menu.banks', locale: $user->language) . "\n";
+        $message .= "📊 " . __('bot.menu.history', locale: $user->language) . "\n";
+        $message .= "🔔 " . __('bot.menu.alerts', locale: $user->language) . "\n";
+        $message .= "👤 " . __('bot.menu.profile', locale: $user->language) . "\n\n";
+        $message .= __('bot.help.message', locale: $user->language);
 
         if ($messageId) {
             $telegram->editMessageText(
@@ -434,6 +465,21 @@ class HandleCallbackAction
                 MainMenuKeyboard::build($user->language)
             );
         }
+    }
+
+    private function handleUnknownAction(
+        int $chatId,
+        string $action,
+        TelegramUser $user,
+        TelegramService $telegram
+    ): void {
+        \Log::warning('Unknown callback action', ['action' => $action]);
+        
+        $telegram->sendMessage(
+            $chatId,
+            '❌ ' . __('bot.errors.api_error', locale: $user->language),
+            MainMenuKeyboard::build($user->language)
+        );
     }
 }
 

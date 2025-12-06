@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 class CurrencyService
 {
-    private string $cbuUrl = 'https://cbu.uz/ru/arkhiv-kursov-valyut/json/';
+    private string $cbuUrl = 'https://cbu.uz/ru/arkhiv-kursov-valyut/json/all/';
 
     public function getLiveRates(): array
     {
@@ -286,7 +286,13 @@ class CurrencyService
     private function getFallbackRates(): array
     {
         // Return rates from database if API fails
-        $latestRates = CurrencyRate::where('rate_date', CurrencyRate::max('rate_date'))
+        $latestDate = CurrencyRate::max('rate_date');
+        
+        if (!$latestDate) {
+            return [];
+        }
+
+        $latestRates = CurrencyRate::where('rate_date', $latestDate)
             ->fromSource('cbu')
             ->get();
 

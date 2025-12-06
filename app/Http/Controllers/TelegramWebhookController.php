@@ -119,10 +119,12 @@ class TelegramWebhookController extends Controller
         );
 
         // Try multiple methods to write
-        @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
-        
-        // Also try error_log
-        @error_log($logEntry, 3, $logFile);
+        try {
+            file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+        } catch (\Exception $e) {
+            // Try error_log as fallback
+            error_log($logEntry);
+        }
         
         // Also try Laravel Log
         try {

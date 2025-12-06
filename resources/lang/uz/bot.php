@@ -4,7 +4,13 @@ return [
     'welcome' => '👋 Xush kelibsiz, :name! Men sizning moliyaviy yordamchingizman. Valyuta kurslari, konvertatsiya va ogohlantirishlar bo\'yicha yordam bera olaman.',
     'welcome_new' => '👋 Xush kelibsiz! Davom etish uchun tilni tanlang.',
     
+    'language' => [
+        'changed' => 'Til :language ga o\'zgartirildi',
+        'select' => 'Tilni tanlang:',
+    ],
+    
     'menu' => [
+        'main_title' => 'Asosiy menyu',
         'rates' => '💱 Valyuta kurslari',
         'convert' => '💱 Konvertatsiya',
         'banks' => '🏦 Bank kurslari',
@@ -35,16 +41,22 @@ return [
         'result' => 'Konvertatsiya natijasi',
         'rate' => 'Kurs',
         'invalid_format' => '❌ Noto\'g\'ri format. Iltimos, yuboring:\n• 100 USD\n• 100 USD UZS ga',
+        'select_from' => 'Konvertatsiya qilish uchun valyutani tanlang:',
+        'select_to' => 'Konvertatsiya qilish uchun valyutani tanlang:',
+        'enter_amount' => 'Konvertatsiya qilish uchun miqdorni kiriting:\n\nDan: :from\nGa: :to',
     ],
     
     'history' => [
         'select_currency' => 'Tarixni ko\'rish uchun valyutani tanlang:',
+        'select_period' => ':currency uchun davrni tanlang:',
         'days' => 'kun',
         'start' => 'Boshlanish',
         'end' => 'Tugash',
         'change' => 'O\'zgarish',
         'no_data' => 'Tarixiy ma\'lumotlar mavjud emas.',
-        'select_period' => 'Davrni tanlang:',
+        'trend_up' => 'Trend: Yuqoriga',
+        'trend_down' => 'Trend: Pastga',
+        'trend_stable' => 'Trend: Barqaror',
         'period_7d' => '7 kun',
         'period_30d' => '30 kun',
         'period_1y' => '1 yil',
@@ -68,9 +80,18 @@ return [
         'create' => 'Ogohlantirish yaratish',
         'created' => 'Ogohlantirish muvaffaqiyatli yaratildi!',
         'deleted' => 'Ogohlantirish o\'chirildi.',
+        'delete_failed' => 'Ogohlantirishni o\'chirishda xatolik yuz berdi.',
         'triggered' => 'Ogohlantirish ishga tushdi!\n\n:currency_from/:currency_to :condition :target_rate\nJoriy kurs: :current_rate',
         'invalid_format' => 'Noto\'g\'ri ogohlantirish formati. Iltimos, ishlating:\n• USD > 12500\n• EUR < 14000',
         'instructions' => 'Kurs ogohlantirishini yaratish:\n\nMenga yuboring:\n• USD > 12500\n• EUR < 14000\n\nYoki quyidagi tugmani ishlating:',
+        'select_currency' => 'Ogohlantirish uchun valyutani tanlang:',
+        'current_rate' => 'Joriy kurs',
+        'select_condition' => 'Shartni tanlang:',
+        'above' => 'Yuqorida',
+        'below' => 'Pastda',
+        'enter_amount' => ':currency uchun maqsadli kursni kiriting :condition:',
+        'select_to_delete' => 'O\'chirish uchun ogohlantirishni tanlang:',
+        'confirm_delete' => 'Bu ogohlantirishni o\'chirishni xohlaysizmi?',
     ],
     
     'profile' => [
@@ -85,6 +106,9 @@ return [
         'change_language' => 'Tilni o\'zgartirish',
         'edit_favorites' => 'Sevimlilarni tahrirlash',
         'toggle_digest' => 'Kunlik xulosani yoqish/o\'chirish',
+        'select_language' => 'Tilni tanlang:',
+        'digest_enabled' => 'Kunlik xulosa yoqildi!',
+        'digest_disabled' => 'Kunlik xulosa o\'chirildi.',
     ],
     
     'help' => [
