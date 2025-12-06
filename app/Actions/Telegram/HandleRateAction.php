@@ -71,8 +71,13 @@ class HandleRateAction
             try {
                 $telegram->editMessageText($chatId, $messageId, $message, MainMenuKeyboard::buildCompact($user->language));
             } catch (\Exception $e) {
-                // If edit fails, send new message
-                \Log::warning('Failed to edit rate message, sending new one', ['error' => $e->getMessage()]);
+                // If edit fails, delete old message and send new one
+                \Log::warning('Failed to edit rate message, deleting and sending new one', ['error' => $e->getMessage()]);
+                try {
+                    $telegram->deleteMessage($chatId, $messageId);
+                } catch (\Exception $deleteError) {
+                    // Ignore delete errors
+                }
                 $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
             }
         } else {

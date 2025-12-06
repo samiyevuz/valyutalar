@@ -82,8 +82,13 @@ class HandleBanksAction
                         CurrencyKeyboard::buildForBanks($user->language)
                     );
                 } catch (\Exception $e) {
-                    // If edit fails, send new message
-                    \Log::warning('Failed to edit bank rates message, sending new one', ['error' => $e->getMessage()]);
+                    // If edit fails, delete old message and send new one
+                    \Log::warning('Failed to edit bank rates message, deleting and sending new one', ['error' => $e->getMessage()]);
+                    try {
+                        $telegram->deleteMessage($chatId, $messageId);
+                    } catch (\Exception $deleteError) {
+                        // Ignore delete errors
+                    }
                     $result = $telegram->sendMessage(
                         $chatId,
                         $message,

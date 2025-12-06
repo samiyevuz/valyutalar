@@ -202,12 +202,18 @@ class HandleCallbackAction
             try {
                 $telegram->editMessageText($chatId, $messageId, $text, $replyMarkup);
             } catch (\Exception $e) {
-                // If edit fails (e.g., message too old), send new message
-                \Log::warning('Failed to edit message, sending new one', [
+                // If edit fails (e.g., message too old), delete old message and send new one
+                \Log::warning('Failed to edit message, deleting and sending new one', [
                     'error' => $e->getMessage(),
                     'chat_id' => $chatId,
                     'message_id' => $messageId,
                 ]);
+                try {
+                    $telegram->deleteMessage($chatId, $messageId);
+                } catch (\Exception $deleteError) {
+                    // Ignore delete errors
+                    \Log::debug('Failed to delete old message', ['error' => $deleteError->getMessage()]);
+                }
                 $telegram->sendMessage($chatId, $text, $replyMarkup);
             }
         } else {
@@ -224,23 +230,20 @@ class HandleCallbackAction
         $name = $user->getDisplayName();
         $message = __('bot.welcome', ['name' => $name], $user->language) . "\n\n";
         $message .= "💱 " . __('bot.menu.rates', locale: $user->language) . "\n";
-        $message .= "💱 " . __('bot.menu.convert', locale: $user->language) . "\n";
+        $message .= "🔄 " . __('bot.menu.convert', locale: $user->language) . "\n";
         $message .= "🏦 " . __('bot.menu.banks', locale: $user->language) . "\n";
         $message .= "📊 " . __('bot.menu.history', locale: $user->language) . "\n";
         $message .= "🔔 " . __('bot.menu.alerts', locale: $user->language) . "\n";
         $message .= "👤 " . __('bot.menu.profile', locale: $user->language) . "\n\n";
         $message .= __('bot.help.message', locale: $user->language);
 
-        if ($messageId) {
-            $telegram->editMessageText(
-                $chatId,
-                $messageId,
-                $message,
-                MainMenuKeyboard::build($user->language)
-            );
-        } else {
-            $telegram->sendMessage($chatId, $message, MainMenuKeyboard::build($user->language));
-        }
+        $this->sendOrEditMessage(
+            $chatId,
+            $messageId,
+            $message,
+            MainMenuKeyboard::build($user->language),
+            $telegram
+        );
     }
 
     private function handleRateSelection(
