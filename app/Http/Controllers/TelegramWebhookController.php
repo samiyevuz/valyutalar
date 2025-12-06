@@ -151,9 +151,16 @@ class TelegramWebhookController extends Controller
         $logFile = storage_path('logs/webhook-debug.log');
         $logDir = dirname($logFile);
 
-        // Create directory if not exists
+        // Create directory if not exists with proper permissions
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0755, true);
+            @chmod($logDir, 0755);
+        }
+
+        // Create log file if not exists
+        if (!file_exists($logFile)) {
+            @touch($logFile);
+            @chmod($logFile, 0664);
         }
 
         $contextStr = !empty($context) ? ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE) : '';
@@ -167,11 +174,24 @@ class TelegramWebhookController extends Controller
         // Try multiple methods to write
         $written = false;
         try {
+            // First try with file_put_contents
             $result = @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
             $written = $result !== false;
+            
+            if (!$written) {
+                // Try with fopen/fwrite
+                $fp = @fopen($logFile, 'a');
+                if ($fp) {
+                    @flock($fp, LOCK_EX);
+                    @fwrite($fp, $logEntry);
+                    @flock($fp, LOCK_UN);
+                    @fclose($fp);
+                    $written = true;
+                }
+            }
         } catch (\Exception $e) {
             // Try error_log as fallback
-            @error_log($logEntry);
+            @error_log('[WEBHOOK-DEBUG] ' . $logEntry);
         }
         
         // Also try Laravel Log
@@ -181,9 +201,9 @@ class TelegramWebhookController extends Controller
             // Ignore
         }
         
-        // Also try PHP error_log
+        // Also try PHP error_log if file write failed
         if (!$written) {
-            @error_log($logEntry);
+            @error_log('[WEBHOOK-DEBUG] ' . $logEntry);
         }
     }
 
