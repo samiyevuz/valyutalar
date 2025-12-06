@@ -4,12 +4,19 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class ValidateTelegramWebhook
 {
     public function handle(Request $request, Closure $next): Response
     {
+        Log::info('Telegram webhook middleware', [
+            'ip' => $request->ip(),
+            'url' => $request->fullUrl(),
+            'method' => $request->method(),
+        ]);
+
         // Validate secret token if configured
         $secretToken = config('telegram.secret_token');
 
@@ -17,6 +24,10 @@ class ValidateTelegramWebhook
             $headerToken = $request->header('X-Telegram-Bot-Api-Secret-Token');
 
             if ($headerToken !== $secretToken) {
+                Log::warning('Invalid secret token', [
+                    'ip' => $request->ip(),
+                    'header_token' => $headerToken ? 'present' : 'missing',
+                ]);
                 abort(401, 'Invalid secret token');
             }
         }

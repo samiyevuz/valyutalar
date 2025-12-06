@@ -25,21 +25,43 @@ class TelegramWebhookController extends Controller
 
     public function handle(Request $request): JsonResponse
     {
+        // Log incoming request
+        Log::info('Telegram webhook received', [
+            'ip' => $request->ip(),
+            'method' => $request->method(),
+            'has_data' => !empty($request->all()),
+            'data_keys' => array_keys($request->all()),
+        ]);
+
         try {
             $data = $request->all();
 
             if (empty($data)) {
+                Log::warning('Empty webhook data received');
                 return response()->json(['ok' => true]);
             }
+
+            Log::debug('Processing Telegram update', [
+                'update_id' => $data['update_id'] ?? null,
+                'has_message' => isset($data['message']),
+                'has_callback' => isset($data['callback_query']),
+            ]);
 
             $update = TelegramUpdateDTO::fromArray($data);
 
             // Get or create user (with database error handling)
             try {
                 $user = TelegramUser::findOrCreateFromDTO($update->getUser());
+                Log::info('User processed', [
+                    'telegram_id' => $user->telegram_id,
+                    'username' => $user->username,
+                    'language' => $user->language,
+                ]);
             } catch (\Exception $e) {
                 Log::error('Failed to get/create user', [
                     'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
                     'user_id' => $update->getUser()->id ?? null,
                 ]);
                 // Return OK to prevent Telegram retries
@@ -54,7 +76,15 @@ class TelegramWebhookController extends Controller
             app()->setLocale($user->language ?? 'en');
 
             // Process update
+            Log::info('Processing update', [
+                'is_command' => $update->isCommand(),
+                'is_callback' => $update->isCallbackQuery(),
+                'command' => $update->getCommand(),
+            ]);
+
             $this->processUpdate($update, $user);
+
+            Log::info('Update processed successfully');
 
             return response()->json(['ok' => true]);
         } catch (\Exception $e) {
