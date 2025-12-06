@@ -13,7 +13,6 @@ use App\Services\TelegramService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\File;
 
 class TelegramWebhookController extends Controller
 {
@@ -26,96 +25,56 @@ class TelegramWebhookController extends Controller
 
     public function handle(Request $request): JsonResponse
     {
-        // Force log to file directly (for debugging)
-        $this->writeLogDirectly('=== WEBHOOK RECEIVED ===', [
+        // ALWAYS log - even if everything fails
+        $this->forceLog('=== WEBHOOK START ===', [
+            'time' => date('Y-m-d H:i:s'),
             'ip' => $request->ip(),
             'method' => $request->method(),
             'url' => $request->fullUrl(),
-            'has_data' => !empty($request->all()),
-            'data_keys' => array_keys($request->all()),
-            'time' => now()->toDateTimeString(),
-        ]);
-
-        // Log incoming request
-        Log::info('Telegram webhook received', [
-            'ip' => $request->ip(),
-            'method' => $request->method(),
-            'has_data' => !empty($request->all()),
-            'data_keys' => array_keys($request->all()),
         ]);
 
         try {
             $data = $request->all();
+            $this->forceLog('Request data received', ['has_data' => !empty($data)]);
 
             if (empty($data)) {
-                $this->writeLogDirectly('Empty webhook data');
-                Log::warning('Empty webhook data received');
+                $this->forceLog('Empty data - returning');
                 return response()->json(['ok' => true]);
             }
 
-            $this->writeLogDirectly('Processing update', [
-                'update_id' => $data['update_id'] ?? null,
-                'has_message' => isset($data['message']),
-                'has_callback' => isset($data['callback_query']),
-            ]);
-
-            Log::debug('Processing Telegram update', [
-                'update_id' => $data['update_id'] ?? null,
-                'has_message' => isset($data['message']),
-                'has_callback' => isset($data['callback_query']),
-            ]);
-
+            $this->forceLog('Creating DTO', ['update_id' => $data['update_id'] ?? 'none']);
+            
             $update = TelegramUpdateDTO::fromArray($data);
+            $this->forceLog('DTO created successfully');
 
-            // Get or create user (with database error handling)
+            // Get or create user
             try {
+                $this->forceLog('Getting user', ['user_id' => $update->getUser()->id ?? 'none']);
                 $user = TelegramUser::findOrCreateFromDTO($update->getUser());
-                
-                $this->writeLogDirectly('User processed', [
-                    'telegram_id' => $user->telegram_id,
-                    'username' => $user->username,
-                    'language' => $user->language,
-                ]);
-
-                Log::info('User processed', [
+                $this->forceLog('User found/created', [
                     'telegram_id' => $user->telegram_id,
                     'username' => $user->username,
                     'language' => $user->language,
                 ]);
             } catch (\Exception $e) {
-                $this->writeLogDirectly('ERROR: Failed to get/create user', [
+                $this->forceLog('ERROR: User creation failed', [
                     'error' => $e->getMessage(),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
-                    'user_id' => $update->getUser()->id ?? null,
                 ]);
-
-                Log::error('Failed to get/create user', [
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'user_id' => $update->getUser()->id ?? null,
-                ]);
-                // Return OK to prevent Telegram retries
                 return response()->json(['ok' => true]);
             }
 
             if ($user->is_blocked) {
-                $this->writeLogDirectly('User is blocked', ['telegram_id' => $user->telegram_id]);
+                $this->forceLog('User is blocked');
                 return response()->json(['ok' => true]);
             }
 
-            // Set locale
             app()->setLocale($user->language ?? 'en');
+            $this->forceLog('Locale set', ['locale' => $user->language ?? 'en']);
 
             // Process update
-            $this->writeLogDirectly('Processing update', [
-                'is_command' => $update->isCommand(),
-                'is_callback' => $update->isCallbackQuery(),
-                'command' => $update->getCommand(),
-            ]);
-
-            Log::info('Processing update', [
+            $this->forceLog('Processing update', [
                 'is_command' => $update->isCommand(),
                 'is_callback' => $update->isCallbackQuery(),
                 'command' => $update->getCommand(),
@@ -123,122 +82,159 @@ class TelegramWebhookController extends Controller
 
             $this->processUpdate($update, $user);
 
-            $this->writeLogDirectly('Update processed successfully');
-            Log::info('Update processed successfully');
-
+            $this->forceLog('=== WEBHOOK SUCCESS ===');
             return response()->json(['ok' => true]);
+
         } catch (\Exception $e) {
-            $this->writeLogDirectly('EXCEPTION', [
+            $this->forceLog('=== WEBHOOK EXCEPTION ===', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => substr($e->getTraceAsString(), 0, 500),
+                'trace' => substr($e->getTraceAsString(), 0, 1000),
             ]);
 
-            Log::error('Telegram webhook error', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'data' => $request->all(),
-            ]);
-
-            // Always return OK to prevent Telegram retries
             return response()->json(['ok' => true]);
         }
     }
 
     /**
-     * Write log directly to file (bypass Laravel logging system)
+     * Force log to file - bypasses all Laravel logging mechanisms
      */
-    private function writeLogDirectly(string $message, array $context = []): void
+    private function forceLog(string $message, array $context = []): void
     {
+        $logFile = storage_path('logs/webhook-debug.log');
+        $logDir = dirname($logFile);
+
+        // Create directory if not exists
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+
+        $contextStr = !empty($context) ? ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE) : '';
+        $logEntry = sprintf(
+            "[%s] %s%s\n",
+            date('Y-m-d H:i:s'),
+            $message,
+            $contextStr
+        );
+
+        // Try multiple methods to write
+        @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+        
+        // Also try error_log
+        @error_log($logEntry, 3, $logFile);
+        
+        // Also try Laravel Log
         try {
-            $logPath = storage_path('logs/telegram-webhook.log');
-            $logDir = dirname($logPath);
-
-            // Ensure directory exists
-            if (!File::exists($logDir)) {
-                File::makeDirectory($logDir, 0755, true);
-            }
-
-            $logEntry = sprintf(
-                "[%s] %s %s\n",
-                now()->toDateTimeString(),
-                $message,
-                !empty($context) ? json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : ''
-            );
-
-            File::append($logPath, $logEntry);
+            Log::info($message, $context);
         } catch (\Exception $e) {
-            // Silently fail - don't break webhook processing
-            error_log('Failed to write log: ' . $e->getMessage());
+            // Ignore
         }
     }
 
     private function processUpdate(TelegramUpdateDTO $update, TelegramUser $user): void
     {
-        // Handle callback queries
-        if ($update->isCallbackQuery()) {
-            app(HandleCallbackAction::class)->execute($update, $user, $this->telegramService);
-            return;
-        }
+        try {
+            // Handle callback queries
+            if ($update->isCallbackQuery()) {
+                $this->forceLog('Processing callback query');
+                app(HandleCallbackAction::class)->execute($update, $user, $this->telegramService);
+                return;
+            }
 
-        // Handle commands
-        if ($update->isCommand()) {
-            $this->handleCommand($update, $user);
-            return;
-        }
+            // Handle commands
+            if ($update->isCommand()) {
+                $this->forceLog('Processing command', ['command' => $update->getCommand()]);
+                $this->handleCommand($update, $user);
+                return;
+            }
 
-        // Handle text messages
-        if ($update->hasText()) {
-            $this->handleTextMessage($update, $user);
+            // Handle text messages
+            if ($update->hasText()) {
+                $this->forceLog('Processing text message', ['text' => substr($update->getText(), 0, 50)]);
+                $this->handleTextMessage($update, $user);
+            }
+        } catch (\Exception $e) {
+            $this->forceLog('ERROR in processUpdate', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
         }
     }
 
     private function handleCommand(TelegramUpdateDTO $update, TelegramUser $user): void
     {
-        $command = $update->getCommand();
-        $commands = config('telegram.commands');
+        try {
+            $command = $update->getCommand();
+            $commands = config('telegram.commands');
 
-        if (isset($commands[$command])) {
-            $action = app($commands[$command]);
-            $action->execute($update, $user, $this->telegramService);
+            $this->forceLog('Handling command', [
+                'command' => $command,
+                'has_handler' => isset($commands[$command]),
+            ]);
+
+            if (isset($commands[$command])) {
+                $action = app($commands[$command]);
+                $action->execute($update, $user, $this->telegramService);
+                $this->forceLog('Command executed', ['command' => $command]);
+            } else {
+                $this->forceLog('Command not found', ['command' => $command]);
+            }
+        } catch (\Exception $e) {
+            $this->forceLog('ERROR in handleCommand', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
         }
     }
 
     private function handleTextMessage(TelegramUpdateDTO $update, TelegramUser $user): void
     {
-        $text = $update->getText();
+        try {
+            $text = $update->getText();
 
-        // Check for state-based conversation
-        if ($user->state) {
-            $this->handleStatefulMessage($update, $user);
-            return;
-        }
+            // Check for state-based conversation
+            if ($user->state) {
+                $this->forceLog('Stateful message', ['state' => $user->state]);
+                $this->handleStatefulMessage($update, $user);
+                return;
+            }
 
-        // Check for conversion pattern
-        $conversion = $this->conversionParser->parse($text);
+            // Check for conversion pattern
+            $conversion = $this->conversionParser->parse($text);
 
-        if ($conversion) {
-            app(HandleConvertAction::class)->performConversion(
-                $update->getChatId(),
-                $conversion,
-                $user,
-                $this->telegramService
-            );
-            return;
-        }
+            if ($conversion) {
+                $this->forceLog('Conversion detected', $conversion);
+                app(HandleConvertAction::class)->performConversion(
+                    $update->getChatId(),
+                    $conversion,
+                    $user,
+                    $this->telegramService
+                );
+                return;
+            }
 
-        // Check for alert pattern
-        $alert = $this->alertService->parseAndCreateAlert($text, $user);
+            // Check for alert pattern
+            $alert = $this->alertService->parseAndCreateAlert($text, $user);
 
-        if ($alert) {
-            $this->telegramService->sendMessage(
-                $update->getChatId(),
-                '✅ ' . __('bot.alerts.created') . "\n\n" . $alert->getDescription()
-            );
-            return;
+            if ($alert) {
+                $this->forceLog('Alert created');
+                $this->telegramService->sendMessage(
+                    $update->getChatId(),
+                    '✅ ' . __('bot.alerts.created') . "\n\n" . $alert->getDescription()
+                );
+                return;
+            }
+
+            $this->forceLog('Text message not processed');
+        } catch (\Exception $e) {
+            $this->forceLog('ERROR in handleTextMessage', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
         }
     }
 

@@ -2,44 +2,25 @@
 
 use App\Http\Controllers\TelegramWebhookController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Log;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-// Telegram Webhook
+// Telegram Webhook - Middleware'ni vaqtincha o'chirib qo'yamiz
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])
-    ->middleware(['telegram.webhook', 'telegram.rate_limit'])
     ->name('telegram.webhook');
 
-// Test route (for debugging - remove in production)
+// Test endpoint
 Route::get('/telegram/test', function () {
-    Log::info('Test endpoint accessed', [
-        'time' => now()->toDateTimeString(),
-        'ip' => request()->ip(),
-    ]);
-
-    return response()->json([
-        'status' => 'ok',
-        'message' => 'Webhook endpoint is accessible',
-        'time' => now()->toDateTimeString(),
-        'log_written' => true,
-    ]);
-});
-
-// Manual webhook test (for debugging)
-Route::post('/telegram/test-webhook', function () {
-    $data = request()->all();
+    $logFile = storage_path('logs/webhook-debug.log');
+    file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] TEST ENDPOINT ACCESSED\n", FILE_APPEND);
     
-    Log::info('Manual webhook test', [
-        'data' => $data,
-        'ip' => request()->ip(),
-    ]);
-
     return response()->json([
         'status' => 'ok',
-        'received_data' => $data,
-        'log_written' => true,
+        'message' => 'Test endpoint works',
+        'log_file' => $logFile,
+        'log_exists' => file_exists($logFile),
+        'log_writable' => is_writable(dirname($logFile)),
     ]);
 });
