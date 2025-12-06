@@ -42,26 +42,54 @@ class HandleBanksAction
         // Normalize currency code
         $currency = strtoupper(trim($currency));
 
+        \Log::info('Showing bank rates', [
+            'currency' => $currency,
+            'chat_id' => $chatId,
+        ]);
+
         // Send typing indicator
         $telegram->sendChatAction($chatId, 'typing');
 
         // Ensure bank rates are fetched
         try {
-            $this->bankRatesService->fetchAllBankRates();
+            $fetched = $this->bankRatesService->fetchAllBankRates();
+            \Log::info('Bank rates fetched', ['count' => $fetched]);
         } catch (\Exception $e) {
             \Log::error('Failed to fetch bank rates', [
                 'currency' => $currency,
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
         }
 
         $message = $this->bankRatesService->formatBankRatesMessage($currency, $user->language);
 
-        $telegram->sendMessage(
-            $chatId,
-            $message,
-            CurrencyKeyboard::buildForBanks($user->language)
-        );
+        \Log::info('Bank rates message formatted', [
+            'currency' => $currency,
+            'message_length' => strlen($message),
+            'message_preview' => substr($message, 0, 100),
+        ]);
+
+        try {
+            $result = $telegram->sendMessage(
+                $chatId,
+                $message,
+                CurrencyKeyboard::buildForBanks($user->language)
+            );
+            
+            \Log::info('Bank rates message sent', [
+                'currency' => $currency,
+                'success' => $result['ok'] ?? false,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to send bank rates message', [
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+        }
     }
 }
 
