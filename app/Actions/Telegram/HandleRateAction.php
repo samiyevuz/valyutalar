@@ -37,7 +37,8 @@ class HandleRateAction
         int $chatId,
         string $currency,
         TelegramUser $user,
-        TelegramService $telegram
+        TelegramService $telegram,
+        ?int $messageId = null
     ): void {
         if ($currency === 'ALL' || $currency === 'all') {
             $this->sendAllRates($chatId, $user, $telegram);
@@ -66,7 +67,17 @@ class HandleRateAction
         $trend = $this->currencyService->getTrend($currency, 7);
         $message = $this->formatSingleRate($rate, $trend, $user->language);
 
-        $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+        if ($messageId) {
+            try {
+                $telegram->editMessageText($chatId, $messageId, $message, MainMenuKeyboard::buildCompact($user->language));
+            } catch (\Exception $e) {
+                // If edit fails, send new message
+                \Log::warning('Failed to edit rate message, sending new one', ['error' => $e->getMessage()]);
+                $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+            }
+        } else {
+            $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+        }
     }
 
     private function sendAllRates(int $chatId, TelegramUser $user, TelegramService $telegram): void

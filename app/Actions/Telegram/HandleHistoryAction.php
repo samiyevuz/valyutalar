@@ -43,7 +43,8 @@ class HandleHistoryAction
         string $currency,
         int $days,
         TelegramUser $user,
-        TelegramService $telegram
+        TelegramService $telegram,
+        ?int $messageId = null
     ): void {
         // Send typing indicator
         $telegram->sendChatAction($chatId, 'typing');
@@ -52,11 +53,21 @@ class HandleHistoryAction
         $trend = $this->currencyService->getTrend($currency, $days);
 
         if ($rates->isEmpty()) {
-            $telegram->sendMessage(
-                $chatId,
-                '❌ ' . __('bot.history.no_data'),
-                CurrencyKeyboard::buildForHistory($user->language)
-            );
+            $errorMessage = '❌ ' . __('bot.history.no_data', locale: $user->language);
+            if ($messageId) {
+                try {
+                    $telegram->editMessageText(
+                        $chatId,
+                        $messageId,
+                        $errorMessage,
+                        CurrencyKeyboard::buildForHistory($user->language)
+                    );
+                } catch (\Exception $e) {
+                    $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+                }
+            } else {
+                $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+            }
             return;
         }
 
@@ -68,6 +79,14 @@ class HandleHistoryAction
 
         // Send chart as photo
         if ($chartUrl) {
+            // For photos, we can't edit, so delete old message if exists and send new
+            if ($messageId) {
+                try {
+                    $telegram->deleteMessage($chatId, $messageId);
+                } catch (\Exception $e) {
+                    // Ignore if delete fails
+                }
+            }
             $telegram->sendPhoto(
                 $chatId,
                 $chartUrl,
@@ -77,11 +96,32 @@ class HandleHistoryAction
         } else {
             // Fallback to text chart
             $textChart = $this->chartService->generateTextChart($rates);
-            $telegram->sendMessage(
-                $chatId,
-                $caption . "\n\n" . $textChart,
-                CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
-            );
+            $fullMessage = $caption . "\n\n" . $textChart;
+            
+            if ($messageId) {
+                try {
+                    $telegram->editMessageText(
+                        $chatId,
+                        $messageId,
+                        $fullMessage,
+                        CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                    );
+                } catch (\Exception $e) {
+                    // If edit fails, send new message
+                    \Log::warning('Failed to edit history message, sending new one', ['error' => $e->getMessage()]);
+                    $telegram->sendMessage(
+                        $chatId,
+                        $fullMessage,
+                        CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                    );
+                }
+            } else {
+                $telegram->sendMessage(
+                    $chatId,
+                    $fullMessage,
+                    CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                );
+            }
         }
     }
 

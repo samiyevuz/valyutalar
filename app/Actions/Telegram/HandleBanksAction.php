@@ -37,7 +37,8 @@ class HandleBanksAction
         int $chatId,
         string $currency,
         TelegramUser $user,
-        TelegramService $telegram
+        TelegramService $telegram,
+        ?int $messageId = null
     ): void {
         // Normalize currency code
         $currency = strtoupper(trim($currency));
@@ -72,15 +73,35 @@ class HandleBanksAction
         ]);
 
         try {
-            $result = $telegram->sendMessage(
-                $chatId,
-                $message,
-                CurrencyKeyboard::buildForBanks($user->language)
-            );
+            if ($messageId) {
+                try {
+                    $result = $telegram->editMessageText(
+                        $chatId,
+                        $messageId,
+                        $message,
+                        CurrencyKeyboard::buildForBanks($user->language)
+                    );
+                } catch (\Exception $e) {
+                    // If edit fails, send new message
+                    \Log::warning('Failed to edit bank rates message, sending new one', ['error' => $e->getMessage()]);
+                    $result = $telegram->sendMessage(
+                        $chatId,
+                        $message,
+                        CurrencyKeyboard::buildForBanks($user->language)
+                    );
+                }
+            } else {
+                $result = $telegram->sendMessage(
+                    $chatId,
+                    $message,
+                    CurrencyKeyboard::buildForBanks($user->language)
+                );
+            }
             
             \Log::info('Bank rates message sent', [
                 'currency' => $currency,
                 'success' => $result['ok'] ?? false,
+                'edited' => $messageId !== null,
             ]);
         } catch (\Exception $e) {
             \Log::error('Failed to send bank rates message', [

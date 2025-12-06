@@ -18,6 +18,8 @@ use App\Services\TelegramService;
 
 class HandleCallbackAction
 {
+    private ?TelegramUpdateDTO $currentUpdate = null;
+
     public function __construct(
         private CurrencyService $currencyService,
         private BankRatesService $bankRatesService,
@@ -146,32 +148,40 @@ class HandleCallbackAction
     ): void {
         $lang = $user->language;
 
-        \Log::info('Handling menu navigation', ['menu' => $menu, 'lang' => $lang]);
+        \Log::info('Handling menu navigation', ['menu' => $menu, 'lang' => $lang, 'message_id' => $messageId]);
 
         match ($menu) {
             'main' => $this->showMainMenu($chatId, $messageId, $user, $telegram),
-            'rates' => $telegram->sendMessage(
+            'rates' => $this->sendOrEditMessage(
                 $chatId,
+                $messageId,
                 '💱 ' . __('bot.rates.select_currency', locale: $lang),
-                CurrencyKeyboard::build('rate', $lang)
+                CurrencyKeyboard::build('rate', $lang),
+                $telegram
             ),
-            'convert' => $telegram->sendMessage(
+            'convert' => $this->sendOrEditMessage(
                 $chatId,
+                $messageId,
                 '🔄 ' . __('bot.convert.select_from', locale: $lang),
-                CurrencyKeyboard::buildForConversion('from', $lang)
+                CurrencyKeyboard::buildForConversion('from', $lang),
+                $telegram
             ),
-            'banks' => $telegram->sendMessage(
+            'banks' => $this->sendOrEditMessage(
                 $chatId,
+                $messageId,
                 '🏦 ' . __('bot.banks.select_currency', locale: $lang),
-                CurrencyKeyboard::buildForBanks($lang)
+                CurrencyKeyboard::buildForBanks($lang),
+                $telegram
             ),
-            'history' => $telegram->sendMessage(
+            'history' => $this->sendOrEditMessage(
                 $chatId,
+                $messageId,
                 '📊 ' . __('bot.history.select_currency', locale: $lang),
-                CurrencyKeyboard::buildForHistory($lang)
+                CurrencyKeyboard::buildForHistory($lang),
+                $telegram
             ),
-            'alerts' => $this->showAlertsMenu($chatId, $user, $telegram),
-            'profile' => $this->showProfileMenu($chatId, $user, $telegram),
+            'alerts' => $this->showAlertsMenu($chatId, $messageId, $user, $telegram),
+            'profile' => $this->showProfileMenu($chatId, $messageId, $user, $telegram),
             'help' => app(HandleHelpAction::class)->execute(
                 new TelegramUpdateDTO(0, null, null, null),
                 $user,
@@ -179,6 +189,30 @@ class HandleCallbackAction
             ),
             default => \Log::warning('Unknown menu', ['menu' => $menu]),
         };
+    }
+
+    private function sendOrEditMessage(
+        int $chatId,
+        ?int $messageId,
+        string $text,
+        ?array $replyMarkup,
+        TelegramService $telegram
+    ): void {
+        if ($messageId) {
+            try {
+                $telegram->editMessageText($chatId, $messageId, $text, $replyMarkup);
+            } catch (\Exception $e) {
+                // If edit fails (e.g., message too old), send new message
+                \Log::warning('Failed to edit message, sending new one', [
+                    'error' => $e->getMessage(),
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId,
+                ]);
+                $telegram->sendMessage($chatId, $text, $replyMarkup);
+            }
+        } else {
+            $telegram->sendMessage($chatId, $text, $replyMarkup);
+        }
     }
 
     private function showMainMenu(
@@ -226,8 +260,9 @@ class HandleCallbackAction
         }
 
         try {
+            $messageId = $this->currentUpdate?->getCallbackMessageId();
             $action = app(HandleRateAction::class);
-            $action->sendCurrencyRate($chatId, $currency, $user, $telegram);
+            $action->sendCurrencyRate($chatId, $currency, $user, $telegram, $messageId);
         } catch (\Exception $e) {
             \Log::error('Rate selection error', [
                 'currency' => $currency,
@@ -258,8 +293,9 @@ class HandleCallbackAction
         }
 
         try {
+            $messageId = $this->currentUpdate?->getCallbackMessageId();
             $action = app(HandleBanksAction::class);
-            $action->showBankRates($chatId, $currency, $user, $telegram);
+            $action->showBankRates($chatId, $currency, $user, $telegram, $messageId);
         } catch (\Exception $e) {
             \Log::error('Banks selection error', [
                 'currency' => $currency,
@@ -280,12 +316,16 @@ class HandleCallbackAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
+        $messageId = $this->currentUpdate?->getCallbackMessageId();
+        
         if (!$days) {
             // Show period selection
-            $telegram->sendMessage(
+            $this->sendOrEditMessage(
                 $chatId,
+                $messageId,
                 '📊 ' . __('bot.history.select_period', ['currency' => $currency], $user->language),
-                CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                CurrencyKeyboard::buildPeriodSelector($currency, $user->language),
+                $telegram
             );
             return;
         }
@@ -293,7 +333,7 @@ class HandleCallbackAction
         app(HandleHistoryAction::class, [
             'currencyService' => $this->currencyService,
             'chartService' => $this->chartService,
-        ])->showHistory($chatId, $currency, (int) $days, $user, $telegram);
+        ])->showHistory($chatId, $currency, (int) $days, $user, $telegram, $messageId);
     }
 
     private function handleConvertSelection(
@@ -440,11 +480,13 @@ class HandleCallbackAction
             ? '✅ ' . __('bot.alerts.deleted', locale: $user->language)
             : '❌ ' . __('bot.alerts.delete_failed', locale: $user->language);
 
-        $this->showAlertsMenu($chatId, $user, $telegram, $message);
+        $messageId = $this->currentUpdate?->getCallbackMessageId();
+        $this->showAlertsMenu($chatId, $messageId, $user, $telegram, $message);
     }
 
     private function showAlertsMenu(
         int $chatId,
+        ?int $messageId,
         TelegramUser $user,
         TelegramService $telegram,
         ?string $prefix = null
@@ -456,7 +498,7 @@ class HandleCallbackAction
             $message = $prefix . "\n\n" . $message;
         }
 
-        $telegram->sendMessage($chatId, $message, AlertsKeyboard::build($alerts, $user->language));
+        $this->sendOrEditMessage($chatId, $messageId, $message, AlertsKeyboard::build($alerts, $user->language), $telegram);
     }
 
     private function handleProfileAction(
@@ -490,21 +532,24 @@ class HandleCallbackAction
             ? '✅ ' . __('bot.profile.digest_enabled', locale: $user->language)
             : '🔕 ' . __('bot.profile.digest_disabled', locale: $user->language);
 
-        $this->showProfileMenu($chatId, $user, $telegram, $message);
+        $messageId = $this->currentUpdate?->getCallbackMessageId();
+        $this->showProfileMenu($chatId, $messageId, $user, $telegram, $message);
     }
 
     private function showProfileMenu(
         int $chatId,
+        ?int $messageId,
         TelegramUser $user,
         TelegramService $telegram,
         ?string $prefix = null
     ): void {
-        $action = app(HandleProfileAction::class);
-        $update = new TelegramUpdateDTO(0, null, null, null);
-
         // Refresh user from DB
         $user->refresh();
-
+        
+        $action = app(HandleProfileAction::class);
+        $update = new TelegramUpdateDTO(0, null, null, null);
+        
+        // Execute profile action - it will handle messageId internally if needed
         $action->execute($update, $user, $telegram);
     }
 

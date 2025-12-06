@@ -54,3 +54,4 @@ tail -50 storage/logs/webhook-debug.log
 2. `webhook-debug.log` fayli mavjud va yoziladi
 3. Botga `/start` yuborilganda log yoziladi
 
+

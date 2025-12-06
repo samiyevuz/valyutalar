@@ -20,11 +20,9 @@ class HandleStartAction
         ]);
 
         try {
-            // If user is new or language not set, show language selection
-            $isNewUser = $user->wasRecentlyCreated ?? false;
-            if ($isNewUser || empty($user->language)) {
+            // If language not set, show language selection
+            if (empty($user->language)) {
                 \Log::info('Showing language selection', [
-                    'is_new' => $isNewUser,
                     'has_language' => !empty($user->language),
                 ]);
                 $this->showLanguageSelection($update, $telegram);

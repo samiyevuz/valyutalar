@@ -65,3 +65,4 @@ Agar javob kelsa, endpoint ishlayapti.
 3. Botga `/start` yuborilganda javob keladi
 4. Log faylga yoziladi
 
+
