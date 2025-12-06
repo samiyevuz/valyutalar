@@ -278,9 +278,32 @@ class TelegramService
         // Replace escaped newlines with actual newlines
         $text = str_replace('\\n', "\n", $text);
         
-        // Remove any invalid HTML tags that might cause parsing errors
+        // Fix HTML entities
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        
         // Telegram HTML only supports: <b>, <i>, <u>, <s>, <code>, <pre>, <a>
-        // We'll keep the text as is, but ensure proper newline handling
+        // Remove any empty tags
+        $text = preg_replace('/<b\s*\/?>\s*<\/b>/i', '', $text);
+        $text = preg_replace('/<i\s*\/?>\s*<\/i>/i', '', $text);
+        $text = preg_replace('/<u\s*\/?>\s*<\/u>/i', '', $text);
+        $text = preg_replace('/<s\s*\/?>\s*<\/s>/i', '', $text);
+        $text = preg_replace('/<code\s*\/?>\s*<\/code>/i', '', $text);
+        $text = preg_replace('/<pre\s*\/?>\s*<\/pre>/i', '', $text);
+        
+        // Remove any self-closing tags that Telegram doesn't support
+        $text = preg_replace('/<(b|i|u|s|code|pre)\s*\/>/i', '<$1>', $text);
+        
+        // Ensure all opening tags have closing tags
+        $allowedTags = ['b', 'i', 'u', 's', 'code', 'pre'];
+        foreach ($allowedTags as $tag) {
+            $openCount = preg_match_all("/<{$tag}(?:\s+[^>]*)?>/i", $text);
+            $closeCount = preg_match_all("/<\/{$tag}>/i", $text);
+            
+            if ($openCount > $closeCount) {
+                // Add missing closing tags at the end
+                $text .= str_repeat("</{$tag}>", $openCount - $closeCount);
+            }
+        }
         
         return $text;
     }
