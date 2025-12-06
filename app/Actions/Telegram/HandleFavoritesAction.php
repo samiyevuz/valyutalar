@@ -11,13 +11,15 @@ class HandleFavoritesAction
 {
     public function execute(TelegramUpdateDTO $update, TelegramUser $user, TelegramService $telegram): void
     {
-        $message = "⭐ <b>" . __('bot.favorites.title') . "</b>\n\n";
-        $message .= __('bot.favorites.instructions');
+        $favorites = $user->getFavoriteCurrencies();
+        $message = "⭐ <b>" . __('bot.favorites.title', locale: $user->language) . "</b>\n\n";
+        $message .= __('bot.favorites.select', locale: $user->language) . "\n\n";
+        $message .= __('bot.favorites.current', locale: $user->language) . ": " . implode(', ', $favorites);
 
         $telegram->sendMessage(
             $update->getChatId(),
             $message,
-            ProfileKeyboard::buildFavoritesEditor($user->getFavoriteCurrencies(), $user->language)
+            ProfileKeyboard::buildFavoritesEditor($favorites, $user->language)
         );
     }
 }

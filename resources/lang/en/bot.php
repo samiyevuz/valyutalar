@@ -23,6 +23,7 @@ return [
     'buttons' => [
         'back' => 'Back',
         'cancel' => 'Cancel',
+        'save' => 'Save',
         'all_rates' => 'All Rates',
         'main_menu' => 'Main Menu',
     ],
@@ -97,6 +98,8 @@ return [
     
     'profile' => [
         'title' => 'Profile',
+        'name' => 'Name',
+        'username' => 'Username',
         'language' => 'Language',
         'favorites' => 'Favorite Currencies',
         'active_alerts' => 'Active Alerts',
@@ -110,6 +113,8 @@ return [
         'select_language' => 'Select your language:',
         'digest_enabled' => 'Daily digest enabled!',
         'digest_disabled' => 'Daily digest disabled.',
+        'enable_digest' => 'Enable Daily Digest',
+        'disable_digest' => 'Disable Daily Digest',
     ],
     
     'help' => [
@@ -133,6 +138,13 @@ return [
         'invalid_amount' => 'Invalid amount. Please enter a valid number.',
         'conversion_failed' => 'Conversion failed. Please try again.',
         'api_error' => 'Service temporarily unavailable. Please try again later.',
+    ],
+    
+    'favorites' => [
+        'title' => 'Favorite Currencies',
+        'select' => 'Select your favorite currencies:',
+        'current' => 'Current favorites',
+        'saved' => 'Favorite currencies saved!',
     ],
     
     'digest' => [

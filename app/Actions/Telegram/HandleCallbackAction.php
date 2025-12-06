@@ -215,8 +215,30 @@ class HandleCallbackAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        app(HandleRateAction::class, ['currencyService' => $this->currencyService])
-            ->sendCurrencyRate($chatId, $currency, $user, $telegram);
+        if (!$currency) {
+            \Log::warning('Rate selection: currency is empty');
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.currency_not_found', ['currency' => ''], $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
+
+        try {
+            $action = app(HandleRateAction::class);
+            $action->sendCurrencyRate($chatId, $currency, $user, $telegram);
+        } catch (\Exception $e) {
+            \Log::error('Rate selection error', [
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function handleBanksSelection(
@@ -225,8 +247,30 @@ class HandleCallbackAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        app(HandleBanksAction::class, ['bankRatesService' => $this->bankRatesService])
-            ->showBankRates($chatId, $currency, $user, $telegram);
+        if (!$currency) {
+            \Log::warning('Banks selection: currency is empty');
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.currency_not_found', ['currency' => ''], $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
+
+        try {
+            $action = app(HandleBanksAction::class);
+            $action->showBankRates($chatId, $currency, $user, $telegram);
+        } catch (\Exception $e) {
+            \Log::error('Banks selection error', [
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function handleHistorySelection(

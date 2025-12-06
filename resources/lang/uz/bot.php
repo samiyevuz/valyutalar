@@ -23,6 +23,7 @@ return [
     'buttons' => [
         'back' => 'Orqaga',
         'cancel' => 'Bekor qilish',
+        'save' => 'Saqlash',
         'all_rates' => 'Barcha kurslar',
         'main_menu' => 'Asosiy menyu',
     ],
@@ -97,6 +98,8 @@ return [
     
     'profile' => [
         'title' => 'Profil',
+        'name' => 'Ism',
+        'username' => 'Username',
         'language' => 'Til',
         'favorites' => 'Sevimli valyutalar',
         'active_alerts' => 'Faol ogohlantirishlar',
@@ -110,6 +113,8 @@ return [
         'select_language' => 'Tilni tanlang:',
         'digest_enabled' => 'Kunlik xulosa yoqildi!',
         'digest_disabled' => 'Kunlik xulosa o\'chirildi.',
+        'enable_digest' => 'Kunlik xulosani yoqish',
+        'disable_digest' => 'Kunlik xulosani o\'chirish',
     ],
     
     'help' => [
@@ -125,6 +130,7 @@ return [
             "Faqat yuboring: 100 USD yoki 100 USD UZS ga\n\n" .
             "<b>Ogohlantirish yaratish:</b>\n" .
             "Yuboring: USD > 12500 yoki EUR < 14000",
+        'title' => 'Yordam',
     ],
     
     'errors' => [
@@ -132,6 +138,13 @@ return [
         'invalid_amount' => 'Noto\'g\'ri miqdor. Iltimos, to\'g\'ri raqam kiriting.',
         'conversion_failed' => 'Konvertatsiya muvaffaqiyatsiz. Iltimos, qayta urinib ko\'ring.',
         'api_error' => 'Xizmat vaqtincha mavjud emas. Iltimos, keyinroq urinib ko\'ring.',
+    ],
+    
+    'favorites' => [
+        'title' => 'Sevimli valyutalar',
+        'select' => 'Sevimli valyutalarni tanlang:',
+        'current' => 'Joriy sevimlilar',
+        'saved' => 'Sevimli valyutalar saqlandi!',
     ],
     
     'digest' => [
