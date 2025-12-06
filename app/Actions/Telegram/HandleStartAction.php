@@ -15,28 +15,48 @@ class HandleStartAction
         \Log::info('HandleStartAction execute', [
             'chat_id' => $update->getChatId(),
             'user_id' => $user->id,
-            'was_recently_created' => $user->wasRecentlyCreated,
+            'was_recently_created' => $user->wasRecentlyCreated ?? false,
             'language' => $user->language,
         ]);
 
         try {
             // If user is new or language not set, show language selection
-            if ($user->wasRecentlyCreated || !$user->language) {
-                \Log::info('Showing language selection');
+            $isNewUser = $user->wasRecentlyCreated ?? false;
+            if ($isNewUser || empty($user->language)) {
+                \Log::info('Showing language selection', [
+                    'is_new' => $isNewUser,
+                    'has_language' => !empty($user->language),
+                ]);
                 $this->showLanguageSelection($update, $telegram);
                 return;
             }
 
             // Always show welcome message when /start is called
-            \Log::info('Showing welcome message');
+            \Log::info('Showing welcome message', [
+                'chat_id' => $update->getChatId(),
+                'language' => $user->language,
+            ]);
             $this->showWelcomeMessage($update, $user, $telegram);
         } catch (\Exception $e) {
             \Log::error('HandleStartAction error', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => substr($e->getTraceAsString(), 0, 1000),
+                'trace' => substr($e->getTraceAsString(), 0, 2000),
             ]);
+            
+            // Try to send error message
+            try {
+                $telegram->sendMessage(
+                    $update->getChatId(),
+                    '❌ ' . __('bot.errors.api_error', locale: $user->language ?? 'en')
+                );
+            } catch (\Exception $sendError) {
+                \Log::error('Failed to send error message in HandleStartAction', [
+                    'error' => $sendError->getMessage(),
+                ]);
+            }
+            
             throw $e;
         }
     }

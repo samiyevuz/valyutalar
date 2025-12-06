@@ -335,8 +335,8 @@ class TelegramService
 
     private function cleanText(string $text): string
     {
-        // Replace escaped newlines with actual newlines
-        $text = str_replace('\\n', "\n", $text);
+        // Replace escaped newlines with actual newlines (handle both \\n and \n)
+        $text = str_replace(['\\n', '\\\\n'], ["\n", "\\n"], $text);
         
         // Fix HTML entities
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -353,19 +353,26 @@ class TelegramService
         // Remove any self-closing tags that Telegram doesn't support
         $text = preg_replace('/<(b|i|u|s|code|pre)\s*\/>/i', '<$1>', $text);
         
-        // Ensure all opening tags have closing tags
+        // Fix unclosed tags - ensure all opening tags have closing tags
         $allowedTags = ['b', 'i', 'u', 's', 'code', 'pre'];
         foreach ($allowedTags as $tag) {
-            $openCount = preg_match_all("/<{$tag}(?:\s+[^>]*)?>/i", $text);
+            // Count opening tags (including self-closing)
+            $openCount = preg_match_all("/<{$tag}(?:\s+[^>]*)?(?<!\/)>/i", $text);
             $closeCount = preg_match_all("/<\/{$tag}>/i", $text);
             
             if ($openCount > $closeCount) {
                 // Add missing closing tags at the end
                 $text .= str_repeat("</{$tag}>", $openCount - $closeCount);
+            } elseif ($closeCount > $openCount) {
+                // Remove extra closing tags
+                $text = preg_replace("/<\/{$tag}>/i", '', $text, $closeCount - $openCount);
             }
         }
         
-        return $text;
+        // Remove any invalid HTML characters that might cause parsing errors
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+        
+        return trim($text);
     }
 
     private function sanitizePayload(array $payload): array
