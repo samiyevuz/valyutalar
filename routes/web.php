@@ -7,14 +7,14 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Telegram Webhook - Middleware'ni vaqtincha o'chirib qo'yamiz
+// Telegram Webhook
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])
     ->name('telegram.webhook');
 
 // Test endpoint
 Route::get('/telegram/test', function () {
     $logFile = storage_path('logs/webhook-debug.log');
-    file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] TEST ENDPOINT ACCESSED\n", FILE_APPEND);
+    @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] TEST ENDPOINT ACCESSED\n", FILE_APPEND);
     
     return response()->json([
         'status' => 'ok',
@@ -22,5 +22,21 @@ Route::get('/telegram/test', function () {
         'log_file' => $logFile,
         'log_exists' => file_exists($logFile),
         'log_writable' => is_writable(dirname($logFile)),
+        'time' => now()->toDateTimeString(),
+    ]);
+});
+
+// Webhook test endpoint (POST)
+Route::post('/telegram/test-webhook', function () {
+    $logFile = storage_path('logs/webhook-debug.log');
+    $data = request()->all();
+    
+    @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] TEST WEBHOOK POST: " . json_encode($data) . "\n", FILE_APPEND);
+    
+    return response()->json([
+        'status' => 'ok',
+        'received_data' => $data,
+        'log_written' => true,
+        'time' => now()->toDateTimeString(),
     ]);
 });
