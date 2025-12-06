@@ -34,8 +34,17 @@ class TelegramWebhookController extends Controller
 
             $update = TelegramUpdateDTO::fromArray($data);
 
-            // Get or create user
-            $user = TelegramUser::findOrCreateFromDTO($update->getUser());
+            // Get or create user (with database error handling)
+            try {
+                $user = TelegramUser::findOrCreateFromDTO($update->getUser());
+            } catch (\Exception $e) {
+                Log::error('Failed to get/create user', [
+                    'error' => $e->getMessage(),
+                    'user_id' => $update->getUser()->id ?? null,
+                ]);
+                // Return OK to prevent Telegram retries
+                return response()->json(['ok' => true]);
+            }
 
             if ($user->is_blocked) {
                 return response()->json(['ok' => true]);
@@ -51,10 +60,13 @@ class TelegramWebhookController extends Controller
         } catch (\Exception $e) {
             Log::error('Telegram webhook error', [
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
                 'data' => $request->all(),
             ]);
 
+            // Always return OK to prevent Telegram retries
             return response()->json(['ok' => true]);
         }
     }

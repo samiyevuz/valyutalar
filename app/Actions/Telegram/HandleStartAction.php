@@ -40,15 +40,14 @@ class HandleStartAction
     {
         $name = $user->getDisplayName();
 
-        $message = __('bot.welcome.greeting', ['name' => $name]) . "\n\n";
-        $message .= __('bot.welcome.description') . "\n\n";
-        $message .= __('bot.welcome.features') . "\n";
-        $message .= "• " . __('bot.welcome.feature_rates') . "\n";
-        $message .= "• " . __('bot.welcome.feature_convert') . "\n";
-        $message .= "• " . __('bot.welcome.feature_banks') . "\n";
-        $message .= "• " . __('bot.welcome.feature_alerts') . "\n";
-        $message .= "• " . __('bot.welcome.feature_history') . "\n\n";
-        $message .= __('bot.welcome.select_action');
+        $message = __('bot.welcome', ['name' => $name]) . "\n\n";
+        $message .= "💱 " . __('bot.menu.rates') . "\n";
+        $message .= "💱 " . __('bot.menu.convert') . "\n";
+        $message .= "🏦 " . __('bot.menu.banks') . "\n";
+        $message .= "📊 " . __('bot.menu.history') . "\n";
+        $message .= "🔔 " . __('bot.menu.alerts') . "\n";
+        $message .= "👤 " . __('bot.menu.profile') . "\n\n";
+        $message .= __('bot.help.message');
 
         $telegram->sendMessage(
             $update->getChatId(),
