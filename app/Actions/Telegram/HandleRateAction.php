@@ -3,6 +3,7 @@
 namespace App\Actions\Telegram;
 
 use App\Builders\Keyboard\CurrencyKeyboard;
+use App\Builders\Keyboard\KeyboardBuilder;
 use App\Builders\Keyboard\MainMenuKeyboard;
 use App\DTOs\TelegramUpdateDTO;
 use App\Models\TelegramUser;
@@ -142,7 +143,13 @@ class HandleRateAction
                 $message = '❌ ' . __('bot.rates.no_data', locale: $user->language);
             }
 
-            $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+            // Only show main menu button, not all menu buttons
+            $keyboard = KeyboardBuilder::inline()
+                ->row()
+                ->button('🏠 ' . __('bot.buttons.main_menu', locale: $user->language), 'menu:main')
+                ->build();
+
+            $telegram->sendMessage($chatId, $message, $keyboard);
         } catch (\Exception $e) {
             \Log::error('Error in sendAllRates', [
                 'chat_id' => $chatId,
