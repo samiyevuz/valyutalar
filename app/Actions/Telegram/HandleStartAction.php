@@ -45,9 +45,11 @@ class HandleStartAction
             
             // Try to send error message
             try {
+                $lang = $user->language ?? 'uz';
                 $telegram->sendMessage(
                     $update->getChatId(),
-                    '❌ ' . __('bot.errors.api_error', locale: $user->language ?? 'en')
+                    '❌ ' . __('bot.errors.api_error', locale: $lang),
+                    MainMenuKeyboard::build($lang)
                 );
             } catch (\Exception $sendError) {
                 \Log::error('Failed to send error message in HandleStartAction', [
@@ -64,10 +66,17 @@ class HandleStartAction
         $message = "🌍 <b>Xush kelibsiz!</b>\n\n";
         $message .= "Iltimos, tilni tanlang:";
 
+        // Add main menu button to language selection
+        $keyboard = LanguageKeyboard::build();
+        // Add main menu button as last row
+        $keyboard['inline_keyboard'][] = [
+            ['text' => '🏠 ' . __('bot.buttons.main_menu', locale: 'uz'), 'callback_data' => 'menu:main']
+        ];
+
         $telegram->sendMessage(
             $update->getChatId(),
             $message,
-            LanguageKeyboard::build()
+            $keyboard
         );
     }
 

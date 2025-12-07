@@ -29,7 +29,7 @@ class HandleRateAction
         $keyboard = CurrencyKeyboard::build('rate', $user->language);
         $telegram->sendMessage(
             $update->getChatId(),
-            '💱 ' . __('bot.rates.select_currency'),
+            '💱 ' . __('bot.rates.select_currency', locale: $user->language),
             $keyboard
         );
     }
@@ -41,57 +41,126 @@ class HandleRateAction
         TelegramService $telegram,
         ?int $messageId = null
     ): void {
-        if ($currency === 'ALL' || $currency === 'all') {
-            $this->sendAllRates($chatId, $user, $telegram);
-            return;
-        }
+        try {
+            if ($currency === 'ALL' || $currency === 'all') {
+                $this->sendAllRates($chatId, $user, $telegram);
+                return;
+            }
 
-        // Normalize currency code
-        $currency = strtoupper(trim($currency));
+            // Normalize currency code
+            $currency = strtoupper(trim($currency));
 
-        $rate = $this->currencyService->getRate($currency);
+            if (empty($currency)) {
+                \Log::warning('Empty currency code provided', [
+                    'chat_id' => $chatId,
+                    'user_id' => $user->id,
+                ]);
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.currency_not_found', ['currency' => ''], $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+                return;
+            }
 
-        if (!$rate) {
-            \Log::warning('Currency rate not found', [
-                'currency' => $currency,
-                'user_id' => $user->id,
-            ]);
+            $rate = $this->currencyService->getRate($currency);
 
-            $telegram->sendMessage(
-                $chatId,
-                '❌ ' . __('bot.errors.currency_not_found', ['currency' => $currency], $user->language),
-                MainMenuKeyboard::build($user->language)
-            );
-            return;
-        }
+            if (!$rate) {
+                \Log::warning('Currency rate not found', [
+                    'currency' => $currency,
+                    'user_id' => $user->id,
+                ]);
 
-        $trend = $this->currencyService->getTrend($currency, 7);
-        $message = $this->formatSingleRate($rate, $trend, $user->language);
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.currency_not_found', ['currency' => $currency], $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+                return;
+            }
 
-        if ($messageId) {
-            try {
-                $telegram->editMessageText($chatId, $messageId, $message, MainMenuKeyboard::buildCompact($user->language));
-            } catch (\Exception $e) {
-                // If edit fails, delete old message and send new one
-                \Log::warning('Failed to edit rate message, deleting and sending new one', ['error' => $e->getMessage()]);
+            $trend = $this->currencyService->getTrend($currency, 7);
+            if (empty($trend)) {
+                \Log::warning('Trend calculation failed', [
+                    'currency' => $currency,
+                ]);
+                $trend = ['trend' => 'stable', 'change_percent' => 0];
+            }
+
+            $message = $this->formatSingleRate($rate, $trend, $user->language);
+
+            if ($messageId) {
                 try {
-                    $telegram->deleteMessage($chatId, $messageId);
-                } catch (\Exception $deleteError) {
-                    // Ignore delete errors
+                    $telegram->editMessageText($chatId, $messageId, $message, MainMenuKeyboard::buildCompact($user->language));
+                } catch (\Exception $e) {
+                    // If edit fails, delete old message and send new one
+                    \Log::warning('Failed to edit rate message, deleting and sending new one', ['error' => $e->getMessage()]);
+                    try {
+                        $telegram->deleteMessage($chatId, $messageId);
+                    } catch (\Exception $deleteError) {
+                        // Ignore delete errors
+                    }
+                    $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
                 }
+            } else {
                 $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
             }
-        } else {
-            $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+        } catch (\Exception $e) {
+            \Log::error('Error in sendCurrencyRate', [
+                'currency' => $currency,
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            
+            try {
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+            } catch (\Exception $sendError) {
+                \Log::error('Failed to send error message', ['error' => $sendError->getMessage()]);
+            }
         }
     }
 
     private function sendAllRates(int $chatId, TelegramUser $user, TelegramService $telegram): void
     {
-        $currencies = $user->getFavoriteCurrencies();
-        $message = $this->currencyService->formatRatesMessage($currencies, $user->language);
+        try {
+            $currencies = $user->getFavoriteCurrencies();
+            
+            if (empty($currencies)) {
+                // Default currencies if no favorites
+                $currencies = ['USD', 'EUR', 'RUB'];
+            }
+            
+            $message = $this->currencyService->formatRatesMessage($currencies, $user->language);
 
-        $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+            if (empty($message)) {
+                $message = '❌ ' . __('bot.rates.no_data', locale: $user->language);
+            }
+
+            $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+        } catch (\Exception $e) {
+            \Log::error('Error in sendAllRates', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            
+            try {
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+            } catch (\Exception $sendError) {
+                \Log::error('Failed to send error message', ['error' => $sendError->getMessage()]);
+            }
+        }
     }
 
     private function formatSingleRate($rate, array $trend, string $lang): string

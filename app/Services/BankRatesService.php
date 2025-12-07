@@ -182,6 +182,14 @@ class BankRatesService
         // Best rates
         $bestBuy = $rates->sortByDesc('buy_rate')->first();
         $bestSell = $rates->sortBy('sell_rate')->first();
+        
+        // Validate bestBuy and bestSell
+        if (!$bestBuy || !isset($bestBuy->buy_rate)) {
+            $bestBuy = null;
+        }
+        if (!$bestSell || !isset($bestSell->sell_rate)) {
+            $bestSell = null;
+        }
 
         if ($bestBuy) {
             $lines[] = '💰 <b>' . __('bot.banks.best_buy', [

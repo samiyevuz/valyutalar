@@ -41,34 +41,80 @@ class HandleConvertAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        $result = $this->currencyService->convertAmount(
-            $conversion['amount'],
-            $conversion['from'],
-            $conversion['to']
-        );
+        try {
+            // Validate conversion data
+            if (empty($conversion['amount']) || empty($conversion['from']) || empty($conversion['to'])) {
+                \Log::warning('Invalid conversion data', ['conversion' => $conversion]);
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.conversion_failed', locale: $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+                return;
+            }
 
-        if ($result->rate <= 0) {
-            $telegram->sendMessage(
-                $chatId,
-                '❌ ' . __('bot.errors.conversion_failed'),
-                MainMenuKeyboard::build($user->language)
+            $result = $this->currencyService->convertAmount(
+                $conversion['amount'],
+                $conversion['from'],
+                $conversion['to']
             );
-            return;
+
+            if (!$result || $result->rate <= 0) {
+                \Log::warning('Conversion failed', [
+                    'conversion' => $conversion,
+                    'result' => $result,
+                ]);
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.conversion_failed', locale: $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+                return;
+            }
+
+            // Save to history
+            try {
+                ConversionHistory::create([
+                    'telegram_user_id' => $user->id,
+                    'currency_from' => $conversion['from'],
+                    'currency_to' => $conversion['to'],
+                    'amount_from' => $conversion['amount'],
+                    'amount_to' => $result->amountTo,
+                    'rate_used' => $result->rate,
+                ]);
+            } catch (\Exception $historyError) {
+                \Log::warning('Failed to save conversion history', [
+                    'error' => $historyError->getMessage(),
+                ]);
+                // Continue anyway, not critical
+            }
+
+            $message = $this->formatConversionResult($result, $user->language);
+
+            if (empty($message)) {
+                $message = '❌ ' . __('bot.errors.conversion_failed', locale: $user->language);
+            }
+
+            $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
+        } catch (\Exception $e) {
+            \Log::error('Error in performConversion', [
+                'conversion' => $conversion ?? [],
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            
+            try {
+                $telegram->sendMessage(
+                    $chatId,
+                    '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+            } catch (\Exception $sendError) {
+                \Log::error('Failed to send error message', ['error' => $sendError->getMessage()]);
+            }
         }
-
-        // Save to history
-        ConversionHistory::create([
-            'telegram_user_id' => $user->id,
-            'currency_from' => $conversion['from'],
-            'currency_to' => $conversion['to'],
-            'amount_from' => $conversion['amount'],
-            'amount_to' => $result->amountTo,
-            'rate_used' => $result->rate,
-        ]);
-
-        $message = $this->formatConversionResult($result, $user->language);
-
-        $telegram->sendMessage($chatId, $message, MainMenuKeyboard::buildCompact($user->language));
     }
 
     private function showConversionInstructions(int $chatId, TelegramUser $user, TelegramService $telegram): void

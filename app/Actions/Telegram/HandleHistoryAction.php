@@ -33,7 +33,7 @@ class HandleHistoryAction
         // Show currency selection
         $telegram->sendMessage(
             $update->getChatId(),
-            '📊 ' . __('bot.history.select_currency'),
+            '📊 ' . __('bot.history.select_currency', locale: $user->language),
             CurrencyKeyboard::buildForHistory($user->language)
         );
     }

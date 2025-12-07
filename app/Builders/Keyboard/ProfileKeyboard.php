@@ -40,7 +40,8 @@ class ProfileKeyboard
 
         $builder->row()
             ->button('💾 ' . __('bot.buttons.save', locale: $lang), 'favorites:save')
-            ->button('◀️ ' . __('bot.buttons.cancel', locale: $lang), 'menu:profile');
+            ->row()
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main');
 
         return $builder->build();
     }

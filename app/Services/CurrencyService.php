@@ -58,34 +58,79 @@ class CurrencyService
 
     public function getConversionRate(string $from, string $to): float
     {
-        $from = strtoupper($from);
-        $to = strtoupper($to);
+        try {
+            $from = strtoupper(trim($from));
+            $to = strtoupper(trim($to));
+            
+            if (empty($from) || empty($to)) {
+                Log::warning('Empty currency codes in getConversionRate', [
+                    'from' => $from,
+                    'to' => $to,
+                ]);
+                return 0;
+            }
 
-        if ($from === $to) {
-            return 1.0;
-        }
+            if ($from === $to) {
+                return 1.0;
+            }
 
-        // If converting to UZS, use direct CBU rate
-        if ($to === 'UZS') {
-            $rate = $this->getRate($from);
-            return $rate ? $rate->rate : 0;
-        }
+            // If converting to UZS, use direct CBU rate
+            if ($to === 'UZS') {
+                $rate = $this->getRate($from);
+                if (!$rate || !isset($rate->rate) || $rate->rate <= 0) {
+                    Log::warning('Invalid rate for conversion to UZS', [
+                        'from' => $from,
+                        'rate' => $rate,
+                    ]);
+                    return 0;
+                }
+                return $rate->rate;
+            }
 
-        // If converting from UZS, invert the rate
-        if ($from === 'UZS') {
-            $rate = $this->getRate($to);
-            return $rate && $rate->rate > 0 ? 1 / $rate->rate : 0;
-        }
+            // If converting from UZS, invert the rate
+            if ($from === 'UZS') {
+                $rate = $this->getRate($to);
+                if (!$rate || !isset($rate->rate) || $rate->rate <= 0) {
+                    Log::warning('Invalid rate for conversion from UZS', [
+                        'to' => $to,
+                        'rate' => $rate,
+                    ]);
+                    return 0;
+                }
+                return 1 / $rate->rate;
+            }
 
-        // Cross-rate calculation via UZS
-        $fromRate = $this->getRate($from);
-        $toRate = $this->getRate($to);
+            // Cross-rate calculation via UZS
+            $fromRate = $this->getRate($from);
+            $toRate = $this->getRate($to);
 
-        if ($fromRate && $toRate && $toRate->rate > 0) {
+            if (!$fromRate || !isset($fromRate->rate) || $fromRate->rate <= 0) {
+                Log::warning('Invalid from rate for cross conversion', [
+                    'from' => $from,
+                    'rate' => $fromRate,
+                ]);
+                return 0;
+            }
+            
+            if (!$toRate || !isset($toRate->rate) || $toRate->rate <= 0) {
+                Log::warning('Invalid to rate for cross conversion', [
+                    'to' => $to,
+                    'rate' => $toRate,
+                ]);
+                return 0;
+            }
+
             return $fromRate->rate / $toRate->rate;
+        } catch (\Exception $e) {
+            Log::error('Error in getConversionRate', [
+                'from' => $from ?? 'unknown',
+                'to' => $to ?? 'unknown',
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return 0;
         }
-
-        return 0;
     }
 
     public function getHistoricalRates(string $currency, int $days = 30): Collection
@@ -318,6 +363,15 @@ class CurrencyService
 
         if ($rates->count() < 2) {
             $singleRate = $rates->first();
+            if (!$singleRate || !isset($singleRate->rate)) {
+                return [
+                    'trend' => 'stable',
+                    'change_percent' => 0,
+                    'change_absolute' => 0,
+                    'oldest_rate' => 0,
+                    'latest_rate' => 0,
+                ];
+            }
             return [
                 'trend' => 'stable',
                 'change_percent' => 0,
@@ -327,8 +381,21 @@ class CurrencyService
             ];
         }
 
-        $oldestRate = $rates->first()->rate;
-        $latestRate = $rates->last()->rate;
+        $oldestRateObj = $rates->first();
+        $latestRateObj = $rates->last();
+        
+        if (!$oldestRateObj || !isset($oldestRateObj->rate) || !$latestRateObj || !isset($latestRateObj->rate)) {
+            return [
+                'trend' => 'stable',
+                'change_percent' => 0,
+                'change_absolute' => 0,
+                'oldest_rate' => 0,
+                'latest_rate' => 0,
+            ];
+        }
+        
+        $oldestRate = $oldestRateObj->rate;
+        $latestRate = $latestRateObj->rate;
 
         $changeAbsolute = $latestRate - $oldestRate;
         $changePercent = $oldestRate > 0 ? ($changeAbsolute / $oldestRate) * 100 : 0;

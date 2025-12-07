@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\Telegram\HandleCallbackAction;
 use App\Actions\Telegram\HandleConvertAction;
+use App\Builders\Keyboard\MainMenuKeyboard;
 use App\DTOs\TelegramUpdateDTO;
 use App\Models\TelegramUser;
 use App\Services\AlertService;
@@ -244,7 +245,8 @@ class TelegramWebhookController extends Controller
                     try {
                         $this->telegramService->sendMessage(
                             $update->getChatId(),
-                            '❌ ' . __('bot.errors.api_error', locale: $user->language)
+                            '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                            MainMenuKeyboard::build($user->language)
                         );
                     } catch (\Exception $sendError) {
                         $this->forceLog('ERROR sending error message', ['error' => $sendError->getMessage()]);
@@ -330,7 +332,8 @@ class TelegramWebhookController extends Controller
                     try {
                         $this->telegramService->sendMessage(
                             $update->getChatId(),
-                            '❌ ' . __('bot.errors.api_error', locale: $user->language)
+                            '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                            MainMenuKeyboard::build($user->language)
                         );
                     } catch (\Exception $sendError) {
                         $this->forceLog('ERROR sending error message', ['error' => $sendError->getMessage()]);
@@ -346,11 +349,12 @@ class TelegramWebhookController extends Controller
                 try {
                     $this->telegramService->sendMessage(
                         $update->getChatId(),
-                        '❓ ' . __('bot.help.message', locale: $user->language)
+                        '❓ ' . __('bot.help.message', locale: $user->language),
+                        MainMenuKeyboard::build($user->language)
                     );
-                } catch (\Exception $sendError) {
-                    $this->forceLog('ERROR sending help message', ['error' => $sendError->getMessage()]);
-                }
+                    } catch (\Exception $sendError) {
+                        $this->forceLog('ERROR sending help message', ['error' => $sendError->getMessage()]);
+                    }
             }
         } catch (\Exception $e) {
             $this->forceLog('ERROR in handleCommand', [
@@ -402,7 +406,8 @@ class TelegramWebhookController extends Controller
                 $this->forceLog('Alert created');
                 $this->telegramService->sendMessage(
                     $update->getChatId(),
-                    '✅ ' . __('bot.alerts.created', locale: $user->language) . "\n\n" . $alert->getDescription()
+                    '✅ ' . __('bot.alerts.created', locale: $user->language) . "\n\n" . $alert->getDescription(),
+                    MainMenuKeyboard::buildCompact($user->language)
                 );
                 return;
             }
@@ -440,7 +445,8 @@ class TelegramWebhookController extends Controller
         if ($amount <= 0) {
             $this->telegramService->sendMessage(
                 $chatId,
-                '❌ ' . __('bot.errors.invalid_amount', locale: $user->language)
+                '❌ ' . __('bot.errors.invalid_amount', locale: $user->language),
+                MainMenuKeyboard::buildCompact($user->language)
             );
             return;
         }
@@ -466,7 +472,8 @@ class TelegramWebhookController extends Controller
         if ($amount <= 0) {
             $this->telegramService->sendMessage(
                 $chatId,
-                '❌ ' . __('bot.errors.invalid_amount', locale: $user->language)
+                '❌ ' . __('bot.errors.invalid_amount', locale: $user->language),
+                MainMenuKeyboard::buildCompact($user->language)
             );
             return;
         }
@@ -477,7 +484,8 @@ class TelegramWebhookController extends Controller
 
         $this->telegramService->sendMessage(
             $chatId,
-            '✅ ' . __('bot.alerts.created', locale: $user->language) . "\n\n🔔 " . $alert->getDescription()
+            '✅ ' . __('bot.alerts.created', locale: $user->language) . "\n\n🔔 " . $alert->getDescription(),
+            MainMenuKeyboard::buildCompact($user->language)
         );
     }
 

@@ -33,7 +33,7 @@ class AlertsKeyboard
             );
         }
 
-        $builder->row()->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:alerts');
+        $builder->row()->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main');
 
         return $builder->build();
     }
@@ -48,7 +48,7 @@ class AlertsKeyboard
             ->button('🇷🇺 RUB', 'alerts:currency:RUB')
             ->button('🇬🇧 GBP', 'alerts:currency:GBP')
             ->row()
-            ->button('◀️ ' . __('bot.buttons.cancel', locale: $lang), 'menu:alerts')
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
             ->build();
     }
 
@@ -60,7 +60,7 @@ class AlertsKeyboard
             ->row()
             ->button('📉 ' . __('bot.alerts.when_below', locale: $lang), "alerts:condition:{$currency}:below")
             ->row()
-            ->button('◀️ ' . __('bot.buttons.cancel', locale: $lang), 'alerts:create')
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
             ->build();
     }
 
