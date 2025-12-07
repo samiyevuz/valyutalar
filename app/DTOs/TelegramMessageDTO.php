@@ -31,13 +31,21 @@ readonly class TelegramMessageDTO
 
     public function isCommand(): bool
     {
-        if (!$this->text || !$this->entities) {
+        if (!$this->text) {
             return false;
         }
 
-        foreach ($this->entities as $entity) {
-            if ($entity['type'] === 'bot_command' && $entity['offset'] === 0) {
-                return true;
+        // Check if text starts with / (command prefix)
+        if (str_starts_with(trim($this->text), '/')) {
+            return true;
+        }
+
+        // Also check entities if available
+        if ($this->entities) {
+            foreach ($this->entities as $entity) {
+                if (($entity['type'] ?? null) === 'bot_command' && ($entity['offset'] ?? -1) === 0) {
+                    return true;
+                }
             }
         }
 

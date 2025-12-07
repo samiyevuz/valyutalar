@@ -365,6 +365,13 @@ class TelegramWebhookController extends Controller
         try {
             $text = $update->getText();
 
+            // Check if it's a command (fallback - in case isCommand() didn't catch it)
+            if ($update->isCommand()) {
+                $this->forceLog('Command detected in handleTextMessage, redirecting to handleCommand');
+                $this->handleCommand($update, $user);
+                return;
+            }
+
             // Check for state-based conversation
             if ($user->state) {
                 $this->forceLog('Stateful message', ['state' => $user->state]);
