@@ -26,7 +26,7 @@ class TelegramWebhookController extends Controller
     public function handle(Request $request): JsonResponse
     {
         // ALWAYS log - even if everything fails
-        // Use error_log first (most reliable)
+        // Use error_log first (most reliable, works even if file system fails)
         @error_log('[WEBHOOK] === WEBHOOK START === ' . date('Y-m-d H:i:s') . ' | IP: ' . $request->ip() . ' | Method: ' . $request->method() . ' | URL: ' . $request->fullUrl());
         
         $this->forceLog('=== WEBHOOK START ===', [
@@ -157,10 +157,15 @@ class TelegramWebhookController extends Controller
             @chmod($logDir, 0755);
         }
 
+        // Ensure directory exists
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+        
         // Create log file if not exists
         if (!file_exists($logFile)) {
             @touch($logFile);
-            @chmod($logFile, 0664);
+            @chmod($logFile, 0666);
         }
 
         $contextStr = !empty($context) ? ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE) : '';
@@ -170,6 +175,9 @@ class TelegramWebhookController extends Controller
             $message,
             $contextStr
         );
+
+        // Always log to PHP error_log first (most reliable)
+        @error_log('[WEBHOOK-DEBUG] ' . trim($logEntry));
 
         // Try multiple methods to write
         $written = false;
@@ -190,8 +198,7 @@ class TelegramWebhookController extends Controller
                 }
             }
         } catch (\Exception $e) {
-            // Try error_log as fallback
-            @error_log('[WEBHOOK-DEBUG] ' . $logEntry);
+            // Already logged to error_log above
         }
         
         // Also try Laravel Log
@@ -199,11 +206,6 @@ class TelegramWebhookController extends Controller
             Log::info($message, $context);
         } catch (\Exception $e) {
             // Ignore
-        }
-        
-        // Also try PHP error_log if file write failed
-        if (!$written) {
-            @error_log('[WEBHOOK-DEBUG] ' . $logEntry);
         }
     }
 
