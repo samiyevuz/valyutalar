@@ -51,7 +51,7 @@ class BankRatesService
                     [
                         'bank_code' => $code,
                         'currency_code' => $currency,
-                        'rate_date' => now()->toDateString(),
+                        'rate_date' => now('Asia/Tashkent')->toDateString(),
                     ],
                     [
                         'bank_name' => $config['name'],
@@ -103,29 +103,52 @@ class BankRatesService
         return $spreads[$bankCode] ?? 0.5;
     }
 
-    public function getBankRates(string $currency = 'USD'): Collection
+    public function getBankRates(string $currency = 'USD', bool $forceRefresh = false): Collection
     {
         $cacheKey = "bank_rates_{$currency}";
 
-        return Cache::remember($cacheKey, 1800, function () use ($currency) {
+        // If force refresh, clear cache first
+        if ($forceRefresh) {
+            Cache::forget($cacheKey);
+        }
+
+        // Cache for only 5 minutes (300 seconds) for real-time data
+        return Cache::remember($cacheKey, 300, function () use ($currency) {
             return BankRate::getLatestRates($currency);
         });
     }
 
     public function formatBankRatesMessage(string $currency, string $lang): string
     {
-        // Ensure bank rates are fetched
+        // Always fetch fresh bank rates for real-time data
         $this->fetchAllBankRates();
         
-        $rates = $this->getBankRates($currency);
+        // Force refresh to get latest data
+        $rates = $this->getBankRates($currency, true);
 
         if ($rates->isEmpty()) {
             // Try to fetch rates if empty
             $this->refreshBankRates();
-            $rates = $this->getBankRates($currency);
+            $rates = $this->getBankRates($currency, true);
             
             if ($rates->isEmpty()) {
                 return __('bot.banks.no_data', locale: $lang);
+            }
+        }
+        
+        // Get the latest update time from the rates (GMT+5 - Uzbekistan time)
+        $latestUpdateTime = now('Asia/Tashkent');
+        if ($rates->isNotEmpty()) {
+            // Try to get updated_at or created_at from the first rate
+            $firstRate = $rates->first();
+            if (isset($firstRate->updated_at)) {
+                $latestUpdateTime = \Carbon\Carbon::parse($firstRate->updated_at)->setTimezone('Asia/Tashkent');
+            } elseif (isset($firstRate->created_at)) {
+                $latestUpdateTime = \Carbon\Carbon::parse($firstRate->created_at)->setTimezone('Asia/Tashkent');
+            } elseif (isset($firstRate->rate_date)) {
+                $latestUpdateTime = \Carbon\Carbon::parse($firstRate->rate_date)
+                    ->setTimezone('Asia/Tashkent')
+                    ->setTime(now('Asia/Tashkent')->hour, now('Asia/Tashkent')->minute);
             }
         }
 
@@ -180,7 +203,9 @@ class BankRatesService
         }
 
         $lines[] = '';
-        $lines[] = '<i>' . __('bot.banks.updated_at', ['time' => now()->format('H:i')], $lang) . '</i>';
+        // Show exact update time with date and time
+        $updateTime = $latestUpdateTime->format('d.m.Y H:i');
+        $lines[] = '<i>🕐 ' . __('bot.banks.updated_at', ['time' => $updateTime], $lang) . '</i>';
 
         return implode("\n", $lines);
     }

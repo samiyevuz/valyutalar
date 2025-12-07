@@ -51,10 +51,14 @@ class HandleBanksAction
         // Send typing indicator
         $telegram->sendChatAction($chatId, 'typing');
 
-        // Ensure bank rates are fetched
+        // Always fetch fresh bank rates for real-time data
         try {
             $fetched = $this->bankRatesService->fetchAllBankRates();
-            \Log::info('Bank rates fetched', ['count' => $fetched]);
+            \Log::info('Bank rates fetched', [
+                'count' => $fetched,
+                'currency' => $currency,
+                'timestamp' => now('Asia/Tashkent')->toDateTimeString(),
+            ]);
         } catch (\Exception $e) {
             \Log::error('Failed to fetch bank rates', [
                 'currency' => $currency,
