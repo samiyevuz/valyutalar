@@ -52,7 +52,7 @@ class CurrencyService
             amountTo: $convertedAmount,
             currencyTo: $to,
             rate: $rate,
-            timestamp: now(),
+            timestamp: now('Asia/Tashkent'),
         );
     }
 
@@ -109,8 +109,8 @@ class CurrencyService
 
             // Fetch from API for missing dates
             $rates = collect();
-            $endDate = now();
-            $startDate = now()->subDays($days);
+            $endDate = now('Asia/Tashkent');
+            $startDate = now('Asia/Tashkent')->subDays($days);
 
             for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
                 $dateStr = $date->format('Y-m-d');
@@ -193,7 +193,7 @@ class CurrencyService
         }
 
         $lines[] = '';
-        $lines[] = '<i>' . __('bot.rates.updated_at', ['time' => now()->format('H:i')], $lang) . '</i>';
+        $lines[] = '<i>' . __('bot.rates.updated_at', ['time' => now('Asia/Tashkent')->format('H:i d.m.Y')], $lang) . '</i>';
 
         return implode("\n", $lines);
     }
