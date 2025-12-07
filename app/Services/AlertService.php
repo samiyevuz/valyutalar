@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Builders\Keyboard\MainMenuKeyboard;
 use App\Models\Alert;
 use App\Models\TelegramUser;
 use Illuminate\Support\Collection;
@@ -170,7 +171,11 @@ class AlertService
         $message .= __('bot.alerts.current_rate') . ': <b>' . number_format($currentRate, 2, '.', ' ') . "</b>\n\n";
         $message .= '<i>' . __('bot.alerts.triggered_note') . '</i>';
 
-        $this->telegramService->sendMessage($user->telegram_id, $message);
+        $this->telegramService->sendMessage(
+            $user->telegram_id,
+            $message,
+            \App\Builders\Keyboard\MainMenuKeyboard::buildCompact($user->language)
+        );
     }
 
     public function formatAlertsMessage(TelegramUser $user): string
