@@ -61,9 +61,7 @@ class HandleStartAction
 
     private function showLanguageSelection(TelegramUpdateDTO $update, TelegramService $telegram): void
     {
-        $message = "🌍 <b>Welcome! / Добро пожаловать! / Xush kelibsiz!</b>\n\n";
-        $message .= "Please select your language:\n";
-        $message .= "Пожалуйста, выберите язык:\n";
+        $message = "🌍 <b>Xush kelibsiz!</b>\n\n";
         $message .= "Iltimos, tilni tanlang:";
 
         $telegram->sendMessage(
