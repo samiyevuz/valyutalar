@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\TelegramWebhookController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -8,7 +9,17 @@ Route::get('/', function () {
 });
 
 // Telegram Webhook - NO MIDDLEWARE for debugging
-Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])
+// IMPORTANT: This route must be accessible without authentication
+Route::post('/telegram/webhook', function (Request $request) {
+    // Immediate logging before anything else
+    @error_log('[WEBHOOK-ROUTE] Request received at: ' . date('Y-m-d H:i:s'));
+    @error_log('[WEBHOOK-ROUTE] IP: ' . $request->ip());
+    @error_log('[WEBHOOK-ROUTE] Method: ' . $request->method());
+    @error_log('[WEBHOOK-ROUTE] URL: ' . $request->fullUrl());
+    
+    // Call the controller
+    return app(TelegramWebhookController::class)->handle($request);
+})
     ->name('telegram.webhook')
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
 
