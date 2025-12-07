@@ -93,9 +93,7 @@ class HandleStartAction
             $message .= "🔄 " . __('bot.menu.convert', locale: $lang) . "\n";
             $message .= "🏦 " . __('bot.menu.banks', locale: $lang) . "\n";
             $message .= "📊 " . __('bot.menu.history', locale: $lang) . "\n";
-            $message .= "🔔 " . __('bot.menu.alerts', locale: $lang) . "\n";
-            $message .= "👤 " . __('bot.menu.profile', locale: $lang) . "\n\n";
-            $message .= __('bot.help.message', locale: $lang);
+            $message .= "🔔 " . __('bot.menu.alerts', locale: $lang);
             
             // Note: cleanText is automatically called in sendMessage
 

@@ -15,9 +15,6 @@ class MainMenuKeyboard
             ->button('📊 ' . __('bot.menu.history', locale: $lang), 'menu:history')
             ->row()
             ->button('🔔 ' . __('bot.menu.alerts', locale: $lang), 'menu:alerts')
-            ->button('👤 ' . __('bot.menu.profile', locale: $lang), 'menu:profile')
-            ->row()
-            ->button('❓ ' . __('bot.menu.help', locale: $lang), 'menu:help')
             ->build();
     }
 
@@ -31,8 +28,6 @@ class MainMenuKeyboard
             ->button('📊', 'menu:history')
             ->row()
             ->button('🔔', 'menu:alerts')
-            ->button('👤', 'menu:profile')
-            ->button('❓', 'menu:help')
             ->build();
     }
 }

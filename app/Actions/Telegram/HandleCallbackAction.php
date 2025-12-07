@@ -184,12 +184,6 @@ class HandleCallbackAction
                 $telegram
             ),
             'alerts' => $this->showAlertsMenu($chatId, $messageId, $user, $telegram),
-            'profile' => $this->showProfileMenu($chatId, $messageId, $user, $telegram),
-            'help' => app(HandleHelpAction::class)->execute(
-                new TelegramUpdateDTO(0, null, null, null),
-                $user,
-                $telegram
-            ),
             default => \Log::warning('Unknown menu', ['menu' => $menu]),
         };
     }
@@ -236,9 +230,7 @@ class HandleCallbackAction
         $message .= "🔄 " . __('bot.menu.convert', locale: $user->language) . "\n";
         $message .= "🏦 " . __('bot.menu.banks', locale: $user->language) . "\n";
         $message .= "📊 " . __('bot.menu.history', locale: $user->language) . "\n";
-        $message .= "🔔 " . __('bot.menu.alerts', locale: $user->language) . "\n";
-        $message .= "👤 " . __('bot.menu.profile', locale: $user->language) . "\n\n";
-        $message .= __('bot.help.message', locale: $user->language);
+        $message .= "🔔 " . __('bot.menu.alerts', locale: $user->language);
 
         $this->sendOrEditMessage(
             $chatId,
