@@ -148,32 +148,68 @@ class HandleHistoryAction
             return;
         }
 
-        // Generate chart URL
-        $chartUrl = $this->chartService->generateRateChart($rates, $currency, $days);
-
         // Build caption
         $caption = $this->buildCaption($currency, $days, $trend, $user->language);
 
-        // Send chart as photo
+        // Generate chart URL only if we have enough data points
+        $chartUrl = null;
+        if ($rates->count() >= 2) {
+            $chartUrl = $this->chartService->generateRateChart($rates, $currency, $days);
+            \Log::info('Chart URL generated', [
+                'currency' => $currency,
+                'has_url' => !empty($chartUrl),
+                'rates_count' => $rates->count(),
+            ]);
+        }
+
+        // Send chart as photo if URL is available
         if ($chartUrl) {
-            // For photos, we can't edit, so delete old message if exists and send new
-            if ($messageId) {
-                try {
-                    $telegram->deleteMessage($chatId, $messageId);
-                } catch (\Exception $e) {
-                    // Ignore if delete fails
+            try {
+                // For photos, we can't edit, so delete old message if exists and send new
+                if ($messageId) {
+                    try {
+                        $telegram->deleteMessage($chatId, $messageId);
+                    } catch (\Exception $e) {
+                        // Ignore if delete fails
+                        \Log::debug('Failed to delete old message', ['error' => $e->getMessage()]);
+                    }
                 }
+                // Add main menu button to keyboard
+                $keyboard = CurrencyKeyboard::buildPeriodSelector($currency, $user->language);
+                
+                \Log::info('Sending chart photo', [
+                    'currency' => $currency,
+                    'url_length' => strlen($chartUrl),
+                ]);
+                
+                $result = $telegram->sendPhoto(
+                    $chatId,
+                    $chartUrl,
+                    $caption,
+                    $keyboard
+                );
+                
+                \Log::info('Chart photo sent', [
+                    'currency' => $currency,
+                    'ok' => $result['ok'] ?? false,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Failed to send chart photo, falling back to text chart', [
+                    'currency' => $currency,
+                    'error' => $e->getMessage(),
+                ]);
+                // Fallback to text chart
+                $chartUrl = null;
             }
-            // Add main menu button to keyboard
-            $keyboard = CurrencyKeyboard::buildPeriodSelector($currency, $user->language);
-            $telegram->sendPhoto(
-                $chatId,
-                $chartUrl,
-                $caption,
-                $keyboard
-            );
-        } else {
-            // Fallback to text chart
+        }
+
+        // Fallback to text chart if photo failed or not enough data
+        if (!$chartUrl) {
+            \Log::info('Using text chart', [
+                'currency' => $currency,
+                'rates_count' => $rates->count(),
+            ]);
+            
             $textChart = $this->chartService->generateTextChart($rates);
             $fullMessage = $caption . "\n\n" . $textChart;
             

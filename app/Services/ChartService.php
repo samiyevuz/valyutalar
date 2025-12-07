@@ -9,57 +9,126 @@ class ChartService
     /**
      * Generate a chart URL using QuickChart.io
      */
-    public function generateRateChart(Collection $rates, string $currency, int $days): string
+    public function generateRateChart(Collection $rates, string $currency, int $days): ?string
     {
-        if ($rates->isEmpty()) {
-            return '';
+        if ($rates->isEmpty() || $rates->count() < 2) {
+            \Log::warning('Not enough data for chart', [
+                'count' => $rates->count(),
+                'currency' => $currency,
+            ]);
+            return null;
         }
 
-        $chartData = $this->prepareChartData($rates);
+        try {
+            $chartData = $this->prepareChartData($rates);
+            
+            // Limit labels to prevent URL too long error
+            $maxLabels = 30;
+            if (count($chartData['labels']) > $maxLabels) {
+                $step = ceil(count($chartData['labels']) / $maxLabels);
+                $filteredLabels = [];
+                $filteredValues = [];
+                for ($i = 0; $i < count($chartData['labels']); $i += $step) {
+                    $filteredLabels[] = $chartData['labels'][$i];
+                    $filteredValues[] = $chartData['values'][$i];
+                }
+                $chartData['labels'] = $filteredLabels;
+                $chartData['values'] = $filteredValues;
+            }
 
-        $chartConfig = [
-            'type' => 'line',
-            'data' => [
-                'labels' => $chartData['labels'],
-                'datasets' => [
-                    [
-                        'label' => "{$currency}/UZS",
-                        'data' => $chartData['values'],
-                        'fill' => true,
-                        'borderColor' => '#2196F3',
-                        'backgroundColor' => 'rgba(33, 150, 243, 0.1)',
-                        'tension' => 0.3,
-                        'pointRadius' => 2,
+            $minValue = min($chartData['values']);
+            $maxValue = max($chartData['values']);
+            $range = $maxValue - $minValue;
+            
+            // Ensure chart has proper scale
+            $yMin = max(0, $minValue - ($range * 0.1));
+            $yMax = $maxValue + ($range * 0.1);
+
+            $chartConfig = [
+                'type' => 'line',
+                'data' => [
+                    'labels' => $chartData['labels'],
+                    'datasets' => [
+                        [
+                            'label' => "{$currency}/UZS",
+                            'data' => $chartData['values'],
+                            'fill' => true,
+                            'borderColor' => '#2196F3',
+                            'backgroundColor' => 'rgba(33, 150, 243, 0.2)',
+                            'tension' => 0.4,
+                            'pointRadius' => 3,
+                            'pointHoverRadius' => 5,
+                            'borderWidth' => 2,
+                        ],
                     ],
                 ],
-            ],
-            'options' => [
-                'responsive' => true,
-                'plugins' => [
-                    'title' => [
-                        'display' => true,
-                        'text' => "{$currency}/UZS - {$days} days",
-                        'font' => ['size' => 14],
+                'options' => [
+                    'responsive' => true,
+                    'plugins' => [
+                        'title' => [
+                            'display' => true,
+                            'text' => "{$currency}/UZS - {$days} kun",
+                            'font' => ['size' => 16, 'weight' => 'bold'],
+                            'color' => '#333',
+                        ],
+                        'legend' => [
+                            'display' => false,
+                        ],
                     ],
-                    'legend' => [
-                        'display' => false,
+                    'scales' => [
+                        'y' => [
+                            'beginAtZero' => false,
+                            'min' => $yMin,
+                            'max' => $yMax,
+                            'grid' => [
+                                'color' => 'rgba(0,0,0,0.1)',
+                                'drawBorder' => true,
+                            ],
+                            'ticks' => [
+                                'color' => '#666',
+                                'font' => ['size' => 10],
+                            ],
+                        ],
+                        'x' => [
+                            'grid' => ['display' => false],
+                            'ticks' => [
+                                'color' => '#666',
+                                'font' => ['size' => 10],
+                                'maxRotation' => 45,
+                                'minRotation' => 0,
+                            ],
+                        ],
                     ],
                 ],
-                'scales' => [
-                    'y' => [
-                        'beginAtZero' => false,
-                        'grid' => ['color' => 'rgba(0,0,0,0.1)'],
-                    ],
-                    'x' => [
-                        'grid' => ['display' => false],
-                    ],
-                ],
-            ],
-        ];
+            ];
 
-        $encodedConfig = urlencode(json_encode($chartConfig));
+            $jsonConfig = json_encode($chartConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            
+            if (strlen($jsonConfig) > 8000) {
+                \Log::warning('Chart config too long, using text chart instead', [
+                    'length' => strlen($jsonConfig),
+                ]);
+                return null;
+            }
 
-        return "https://quickchart.io/chart?c={$encodedConfig}&w=600&h=300&bkg=white";
+            $encodedConfig = urlencode($jsonConfig);
+            $url = "https://quickchart.io/chart?c={$encodedConfig}&w=800&h=400&bkg=white&f=png";
+            
+            \Log::info('Chart URL generated', [
+                'currency' => $currency,
+                'days' => $days,
+                'data_points' => count($chartData['values']),
+                'url_length' => strlen($url),
+            ]);
+
+            return $url;
+        } catch (\Exception $e) {
+            \Log::error('Error generating chart', [
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 
     private function prepareChartData(Collection $rates): array
