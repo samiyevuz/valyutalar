@@ -93,97 +93,201 @@ class CurrencyService
         $currency = strtoupper($currency);
         $cacheKey = "currency_history_{$currency}_{$days}";
 
-        // Reduce cache time to 5 minutes for more fresh data
-        return Cache::remember($cacheKey, 300, function () use ($currency, $days) {
-            // First, try to get from database
-            $dbRates = CurrencyRate::getHistoricalRates($currency, $days);
-            
-            \Log::info('Historical rates from DB', [
-                'currency' => $currency,
-                'days' => $days,
-                'count' => $dbRates->count(),
-                'expected_min' => (int)($days * 0.5),
-            ]);
+        try {
+            // Reduce cache time to 5 minutes for more fresh data
+            return Cache::remember($cacheKey, 300, function () use ($currency, $days) {
+                try {
+                    // First, try to get from database
+                    $dbRates = CurrencyRate::getHistoricalRates($currency, $days);
+                    
+                    \Log::info('Historical rates from DB', [
+                        'currency' => $currency,
+                        'days' => $days,
+                        'count' => $dbRates->count(),
+                        'expected_min' => max(1, (int)($days * 0.3)),
+                    ]);
 
-            // If we have at least 50% of expected data, return it
-            if ($dbRates->count() >= max(1, (int)($days * 0.5))) {
-                $mappedRates = $dbRates->map(fn($r) => new CurrencyRateDTO(
-                    currencyCode: $r->currency_code,
-                    baseCurrency: $r->base_currency,
-                    rate: (float) $r->rate,
-                    source: $r->source,
-                    date: $r->rate_date,
-                ));
-                
-                \Log::info('Returning rates from DB', [
-                    'currency' => $currency,
-                    'count' => $mappedRates->count(),
-                ]);
-                
-                return $mappedRates;
-            }
-
-            // Fetch from API for missing dates
-            \Log::info('Fetching historical rates from API', [
-                'currency' => $currency,
-                'days' => $days,
-                'db_count' => $dbRates->count(),
-            ]);
-
-            $rates = collect();
-            $endDate = now('Asia/Tashkent');
-            $startDate = now('Asia/Tashkent')->subDays($days);
-            
-            // Get existing dates from DB to avoid duplicate API calls
-            $existingDates = $dbRates->pluck('rate_date')->map(fn($d) => $d->format('Y-m-d'))->toArray();
-
-            $fetchedCount = 0;
-            $maxApiCalls = min($days, 30); // Limit API calls to prevent timeout
-            
-            for ($date = $startDate->copy(); $date <= $endDate && $fetchedCount < $maxApiCalls; $date->addDay()) {
-                $dateStr = $date->format('Y-m-d');
-                
-                // Skip if we already have this date in DB
-                if (in_array($dateStr, $existingDates)) {
-                    continue;
-                }
-                
-                $rateData = $this->fetchCbuRatesForDate($dateStr);
-                $fetchedCount++;
-
-                foreach ($rateData as $rate) {
-                    if ($rate->currencyCode === $currency) {
-                        $rates->push($rate);
-                        $this->storeRate($rate);
+                    // If we have at least 30% of expected data, return it
+                    if ($dbRates->count() >= max(1, (int)($days * 0.3))) {
+                        $mappedRates = $dbRates->map(fn($r) => new CurrencyRateDTO(
+                            currencyCode: $r->currency_code,
+                            baseCurrency: $r->base_currency,
+                            rate: (float) $r->rate,
+                            source: $r->source,
+                            date: $r->rate_date,
+                        ));
+                        
+                        \Log::info('Returning rates from DB', [
+                            'currency' => $currency,
+                            'count' => $mappedRates->count(),
+                        ]);
+                        
+                        return $mappedRates;
                     }
-                }
-                
-                // Small delay to avoid rate limiting
-                if ($fetchedCount % 5 === 0) {
-                    usleep(100000); // 0.1 second delay every 5 requests
-                }
-            }
 
-            // Merge DB rates with newly fetched rates
-            $allRates = $dbRates->map(fn($r) => new CurrencyRateDTO(
-                currencyCode: $r->currency_code,
-                baseCurrency: $r->base_currency,
-                rate: (float) $r->rate,
-                source: $r->source,
-                date: $r->rate_date,
-            ))->merge($rates)->unique(function ($rate) {
-                return $rate->currencyCode . '_' . $rate->date->format('Y-m-d');
-            })->sortBy('date')->values();
+                    // Fetch from API for missing dates
+                    \Log::info('Fetching historical rates from API', [
+                        'currency' => $currency,
+                        'days' => $days,
+                        'db_count' => $dbRates->count(),
+                    ]);
 
-            \Log::info('Historical rates fetched', [
+                    $rates = collect();
+                    $endDate = now('Asia/Tashkent');
+                    $startDate = now('Asia/Tashkent')->subDays($days);
+                    
+                    // Get existing dates from DB to avoid duplicate API calls
+                    $existingDates = $dbRates->pluck('rate_date')->map(fn($d) => $d->format('Y-m-d'))->toArray();
+
+                    $fetchedCount = 0;
+                    $maxApiCalls = min($days, 20); // Limit API calls to prevent timeout
+                    $successCount = 0;
+                    
+                    // Start from most recent dates (more likely to have data)
+                    $datesToFetch = [];
+                    for ($date = $endDate->copy(); $date >= $startDate; $date->subDay()) {
+                        $dateStr = $date->format('Y-m-d');
+                        if (!in_array($dateStr, $existingDates)) {
+                            $datesToFetch[] = $dateStr;
+                        }
+                    }
+                    
+                    // Fetch recent dates first
+                    foreach (array_slice($datesToFetch, 0, $maxApiCalls) as $dateStr) {
+                        try {
+                            $rateData = $this->fetchCbuRatesForDate($dateStr);
+                            $fetchedCount++;
+
+                            foreach ($rateData as $rate) {
+                                if ($rate->currencyCode === $currency) {
+                                    $rates->push($rate);
+                                    $this->storeRate($rate);
+                                    $successCount++;
+                                }
+                            }
+                            
+                            // Small delay to avoid rate limiting
+                            if ($fetchedCount % 3 === 0) {
+                                usleep(200000); // 0.2 second delay every 3 requests
+                            }
+                        } catch (\Exception $e) {
+                            \Log::warning('Failed to fetch rate for date', [
+                                'date' => $dateStr,
+                                'currency' => $currency,
+                                'error' => $e->getMessage(),
+                            ]);
+                            // Continue with next date
+                        }
+                    }
+
+                    // Merge DB rates with newly fetched rates
+                    $allRates = $dbRates->map(fn($r) => new CurrencyRateDTO(
+                        currencyCode: $r->currency_code,
+                        baseCurrency: $r->base_currency,
+                        rate: (float) $r->rate,
+                        source: $r->source,
+                        date: $r->rate_date,
+                    ))->merge($rates)->unique(function ($rate) {
+                        return $rate->currencyCode . '_' . $rate->date->format('Y-m-d');
+                    })->sortBy('date')->values();
+
+                    \Log::info('Historical rates fetched', [
+                        'currency' => $currency,
+                        'total_count' => $allRates->count(),
+                        'from_db' => $dbRates->count(),
+                        'from_api' => $rates->count(),
+                        'success_count' => $successCount,
+                    ]);
+
+                    // If we still don't have enough data, try to get at least some data
+                    if ($allRates->isEmpty()) {
+                        \Log::warning('No historical rates found, trying to get current rate', [
+                            'currency' => $currency,
+                        ]);
+                        
+                        // Try to get current rate as fallback
+                        $currentRate = $this->getRate($currency);
+                        if ($currentRate) {
+                            \Log::info('Using current rate as fallback for history', [
+                                'currency' => $currency,
+                                'rate' => $currentRate->rate,
+                            ]);
+                            return collect([$currentRate]);
+                        }
+                    }
+
+                    return $allRates;
+                } catch (\Exception $e) {
+                    \Log::error('Error in getHistoricalRates cache callback', [
+                        'currency' => $currency,
+                        'days' => $days,
+                        'error' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ]);
+                    
+                    // Try to return at least database data
+                    try {
+                        $dbRates = CurrencyRate::getHistoricalRates($currency, $days);
+                        if ($dbRates->isNotEmpty()) {
+                            return $dbRates->map(fn($r) => new CurrencyRateDTO(
+                                currencyCode: $r->currency_code,
+                                baseCurrency: $r->base_currency,
+                                rate: (float) $r->rate,
+                                source: $r->source,
+                                date: $r->rate_date,
+                            ));
+                        }
+                    } catch (\Exception $dbError) {
+                        \Log::error('Error getting rates from DB as fallback', [
+                            'error' => $dbError->getMessage(),
+                        ]);
+                    }
+                    
+                    // Last resort: return current rate
+                    $currentRate = $this->getRate($currency);
+                    if ($currentRate) {
+                        return collect([$currentRate]);
+                    }
+                    
+                    return collect();
+                }
+            });
+        } catch (\Exception $e) {
+            \Log::error('Error in getHistoricalRates', [
                 'currency' => $currency,
-                'total_count' => $allRates->count(),
-                'from_db' => $dbRates->count(),
-                'from_api' => $rates->count(),
+                'days' => $days,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
-
-            return $allRates;
-        });
+            
+            // Try to get from database without cache
+            try {
+                $dbRates = CurrencyRate::getHistoricalRates($currency, $days);
+                if ($dbRates->isNotEmpty()) {
+                    return $dbRates->map(fn($r) => new CurrencyRateDTO(
+                        currencyCode: $r->currency_code,
+                        baseCurrency: $r->base_currency,
+                        rate: (float) $r->rate,
+                        source: $r->source,
+                        date: $r->rate_date,
+                    ));
+                }
+            } catch (\Exception $dbError) {
+                \Log::error('Error getting rates from DB', [
+                    'error' => $dbError->getMessage(),
+                ]);
+            }
+            
+            // Last resort: return current rate
+            $currentRate = $this->getRate($currency);
+            if ($currentRate) {
+                return collect([$currentRate]);
+            }
+            
+            return collect();
+        }
     }
 
     public function getTrend(string $currency, int $days = 7): array
@@ -349,8 +453,8 @@ class CurrencyService
                 'url' => $url,
             ]);
             
-            $response = Http::timeout(15)
-                ->retry(2, 500)
+            $response = Http::timeout(20)
+                ->retry(3, 1000)
                 ->get($url);
 
             if (!$response->successful()) {
@@ -358,6 +462,7 @@ class CurrencyService
                     'date' => $date,
                     'status' => $response->status(),
                     'url' => $url,
+                    'body_preview' => substr($response->body(), 0, 200),
                 ]);
                 return [];
             }

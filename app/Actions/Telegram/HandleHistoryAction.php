@@ -61,6 +61,12 @@ class HandleHistoryAction
             $cacheKey = "currency_history_{$currency}_{$days}";
             \Illuminate\Support\Facades\Cache::forget($cacheKey);
             
+            \Log::info('Fetching historical rates', [
+                'currency' => $currency,
+                'days' => $days,
+                'chat_id' => $chatId,
+            ]);
+            
             $rates = $this->currencyService->getHistoricalRates($currency, $days);
             \Log::info('Historical rates fetched', [
                 'currency' => $currency,
@@ -68,14 +74,14 @@ class HandleHistoryAction
                 'count' => $rates->count(),
             ]);
 
-            // If no data, try to fetch current rate and use it as fallback
+            // If no data, try multiple fallback strategies
             if ($rates->isEmpty()) {
-                \Log::warning('No historical data found, trying to fetch current rate', [
+                \Log::warning('No historical data found, trying fallback strategies', [
                     'currency' => $currency,
                     'days' => $days,
                 ]);
                 
-                // Try to get current rate and create a single data point
+                // Strategy 1: Try to get current rate
                 $currentRate = $this->currencyService->getRate($currency);
                 if ($currentRate) {
                     $rates = collect([$currentRate]);
@@ -83,11 +89,33 @@ class HandleHistoryAction
                         'currency' => $currency,
                         'rate' => $currentRate->rate,
                     ]);
+                } else {
+                    // Strategy 2: Try to get from database with longer period
+                    try {
+                        $dbRates = \App\Models\CurrencyRate::getHistoricalRates($currency, min($days * 2, 365));
+                        if ($dbRates->isNotEmpty()) {
+                            $rates = $dbRates->map(fn($r) => new \App\DTOs\CurrencyRateDTO(
+                                currencyCode: $r->currency_code,
+                                baseCurrency: $r->base_currency,
+                                rate: (float) $r->rate,
+                                source: $r->source,
+                                date: $r->rate_date,
+                            ));
+                            \Log::info('Using extended DB rates as fallback', [
+                                'currency' => $currency,
+                                'count' => $rates->count(),
+                            ]);
+                        }
+                    } catch (\Exception $dbError) {
+                        \Log::error('Error getting extended DB rates', [
+                            'error' => $dbError->getMessage(),
+                        ]);
+                    }
                 }
             }
 
             if ($rates->isEmpty()) {
-                \Log::error('No historical data found and no current rate available', [
+                \Log::error('No historical data found after all fallback strategies', [
                     'currency' => $currency,
                     'days' => $days,
                 ]);
@@ -111,10 +139,11 @@ class HandleHistoryAction
                 return;
             }
 
-            $trend = $this->currencyService->getTrend($currency, min($days, $rates->count()));
+            $trend = $this->currencyService->getTrend($currency, min($days, max(1, $rates->count())));
             \Log::info('Trend calculated', [
                 'currency' => $currency,
                 'trend' => $trend,
+                'rates_count' => $rates->count(),
             ]);
         } catch (\Exception $e) {
             \Log::error('Error fetching historical rates', [
