@@ -29,6 +29,9 @@ class HandleCallbackAction
 
     public function execute(TelegramUpdateDTO $update, TelegramUser $user, TelegramService $telegram): void
     {
+        // Store current update for use in sub-methods
+        $this->currentUpdate = $update;
+        
         $callbackData = $update->getCallbackData();
         $callbackId = $update->getCallbackQueryId();
         $chatId = $update->getChatId();
@@ -321,6 +324,13 @@ class HandleCallbackAction
     ): void {
         $messageId = $this->currentUpdate?->getCallbackMessageId();
         
+        \Log::info('handleHistorySelection', [
+            'chat_id' => $chatId,
+            'currency' => $currency,
+            'days' => $days,
+            'message_id' => $messageId,
+        ]);
+        
         if (!$days) {
             // Show period selection
             $this->sendOrEditMessage(
@@ -333,10 +343,23 @@ class HandleCallbackAction
             return;
         }
 
-        app(HandleHistoryAction::class, [
-            'currencyService' => $this->currencyService,
-            'chartService' => $this->chartService,
-        ])->showHistory($chatId, $currency, (int) $days, $user, $telegram, $messageId);
+        try {
+            $historyAction = app(HandleHistoryAction::class);
+            $historyAction->showHistory($chatId, $currency, (int) $days, $user, $telegram, $messageId);
+        } catch (\Exception $e) {
+            \Log::error('Error in handleHistorySelection', [
+                'currency' => $currency,
+                'days' => $days,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function handleConvertSelection(

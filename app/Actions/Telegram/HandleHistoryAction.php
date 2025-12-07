@@ -46,14 +46,61 @@ class HandleHistoryAction
         TelegramService $telegram,
         ?int $messageId = null
     ): void {
+        \Log::info('HandleHistoryAction::showHistory', [
+            'chat_id' => $chatId,
+            'currency' => $currency,
+            'days' => $days,
+            'message_id' => $messageId,
+        ]);
+
         // Send typing indicator
         $telegram->sendChatAction($chatId, 'typing');
 
-        $rates = $this->currencyService->getHistoricalRates($currency, $days);
-        $trend = $this->currencyService->getTrend($currency, $days);
+        try {
+            $rates = $this->currencyService->getHistoricalRates($currency, $days);
+            \Log::info('Historical rates fetched', [
+                'currency' => $currency,
+                'days' => $days,
+                'count' => $rates->count(),
+            ]);
 
-        if ($rates->isEmpty()) {
-            $errorMessage = '❌ ' . __('bot.history.no_data', locale: $user->language);
+            $trend = $this->currencyService->getTrend($currency, $days);
+            \Log::info('Trend calculated', [
+                'currency' => $currency,
+                'trend' => $trend,
+            ]);
+
+            if ($rates->isEmpty()) {
+                \Log::warning('No historical data found', [
+                    'currency' => $currency,
+                    'days' => $days,
+                ]);
+                $errorMessage = '❌ ' . __('bot.history.no_data', locale: $user->language);
+                if ($messageId) {
+                    try {
+                        $telegram->editMessageText(
+                            $chatId,
+                            $messageId,
+                            $errorMessage,
+                            CurrencyKeyboard::buildForHistory($user->language)
+                        );
+                    } catch (\Exception $e) {
+                        $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+                    }
+                } else {
+                    $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+                }
+                return;
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error fetching historical rates', [
+                'currency' => $currency,
+                'days' => $days,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            $errorMessage = '❌ ' . __('bot.errors.api_error', locale: $user->language);
             if ($messageId) {
                 try {
                     $telegram->editMessageText(
@@ -62,7 +109,7 @@ class HandleHistoryAction
                         $errorMessage,
                         CurrencyKeyboard::buildForHistory($user->language)
                     );
-                } catch (\Exception $e) {
+                } catch (\Exception $editError) {
                     $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
                 }
             } else {
