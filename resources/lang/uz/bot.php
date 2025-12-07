@@ -39,8 +39,12 @@ return [
     ],
     
     'convert' => [
+        'title' => 'Valyuta aylantirish',
         'instructions' => '💱 Valyuta aylantirish\n\nMenga xabar yuboring:\n• 100 USD\n• 100 USD UZS ga\n• 100 USD -> UZS\n\nYoki quyidagi menyudan valyutalarni tanlang:',
+        'examples' => 'Misollar',
+        'hint' => 'Yoki shunchaki summani valyuta bilan yozing, masalan "100 USD"',
         'result' => 'Aylantirish natijasi',
+        'result_title' => 'Aylantirish natijasi',
         'rate' => 'Kurs',
         'invalid_format' => '❌ Noto\'g\'ri format. Iltimos, yuboring:\n• 100 USD\n• 100 USD UZS ga',
         'select_from' => 'Aylantirish uchun valyutani tanlang:',

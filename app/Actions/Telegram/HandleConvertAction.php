@@ -73,17 +73,18 @@ class HandleConvertAction
 
     private function showConversionInstructions(int $chatId, TelegramUser $user, TelegramService $telegram): void
     {
-        $message = "🔄 <b>" . __('bot.convert.title') . "</b>\n\n";
-        $message .= __('bot.convert.instructions') . "\n\n";
-        $message .= "<b>" . __('bot.convert.examples') . ":</b>\n";
+        $lang = $user->language;
+        $message = "🔄 <b>" . __('bot.convert.title', locale: $lang) . "</b>\n\n";
+        $message .= __('bot.convert.instructions', locale: $lang) . "\n\n";
+        $message .= "<b>" . __('bot.convert.examples', locale: $lang) . ":</b>\n";
         $message .= "• <code>100 USD -> UZS</code>\n";
         $message .= "• <code>50000 UZS to EUR</code>\n";
-        $message .= "• <code>1000 рублей в доллары</code>\n";
-        $message .= "• <code>500 евро</code>\n\n";
-        $message .= "<i>" . __('bot.convert.hint') . "</i>";
+        $message .= "• <code>1000 RUB -> USD</code>\n";
+        $message .= "• <code>500 EUR</code>\n\n";
+        $message .= "<i>" . __('bot.convert.hint', locale: $lang) . "</i>";
 
         // Add main menu button to keyboard
-        $keyboard = CurrencyKeyboard::buildForConversion('from', $user->language);
+        $keyboard = CurrencyKeyboard::buildForConversion('from', $lang);
         $telegram->sendMessage(
             $chatId,
             $message,
