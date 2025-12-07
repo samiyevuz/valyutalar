@@ -10,6 +10,8 @@ class BankRate extends Model
 {
     use HasFactory;
 
+    public $timestamps = true;
+
     protected $fillable = [
         'bank_code',
         'bank_name',

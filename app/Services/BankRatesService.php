@@ -57,6 +57,7 @@ class BankRatesService
                         'bank_name' => $config['name'],
                         'buy_rate' => $buyRate,
                         'sell_rate' => $sellRate,
+                        'updated_at' => now('Asia/Tashkent'),
                     ]
                 );
             }
@@ -136,18 +137,16 @@ class BankRatesService
             }
         }
         
-        // Get the latest update time from the rates (GMT+5 - Uzbekistan time)
+        // Get the latest update time (GMT+5 - Uzbekistan time)
+        // Use current time as bank rates are fetched in real-time
         $latestUpdateTime = now('Asia/Tashkent');
+        
+        // Try to get the latest rate_date from rates if available
         if ($rates->isNotEmpty()) {
-            // Try to get updated_at or created_at from the first rate
-            $firstRate = $rates->first();
-            if (isset($firstRate->updated_at)) {
-                $latestUpdateTime = \Carbon\Carbon::parse($firstRate->updated_at)->setTimezone('Asia/Tashkent');
-            } elseif (isset($firstRate->created_at)) {
-                $latestUpdateTime = \Carbon\Carbon::parse($firstRate->created_at)->setTimezone('Asia/Tashkent');
-            } elseif (isset($firstRate->rate_date)) {
-                $latestUpdateTime = \Carbon\Carbon::parse($firstRate->rate_date)
-                    ->setTimezone('Asia/Tashkent')
+            $latestRateDate = $rates->max('rate_date');
+            if ($latestRateDate) {
+                // Combine rate_date with current time
+                $latestUpdateTime = \Carbon\Carbon::parse($latestRateDate, 'Asia/Tashkent')
                     ->setTime(now('Asia/Tashkent')->hour, now('Asia/Tashkent')->minute);
             }
         }
@@ -185,21 +184,17 @@ class BankRatesService
         $bestSell = $rates->sortBy('sell_rate')->first();
 
         if ($bestBuy) {
-            $lines[] = '💰 <b>' . __('bot.banks.best_buy', locale: $lang) . ':</b>';
-            $lines[] = sprintf(
-                '   %s - %s UZS',
-                $bestBuy->bank_name,
-                number_format((float) $bestBuy->buy_rate, 0, '.', ' ')
-            );
+            $lines[] = '💰 <b>' . __('bot.banks.best_buy', [
+                'bank' => $bestBuy->bank_name,
+                'rate' => number_format((float) $bestBuy->buy_rate, 0, '.', ' ')
+            ], $lang) . '</b>';
         }
 
         if ($bestSell) {
-            $lines[] = '💳 <b>' . __('bot.banks.best_sell', locale: $lang) . ':</b>';
-            $lines[] = sprintf(
-                '   %s - %s UZS',
-                $bestSell->bank_name,
-                number_format((float) $bestSell->sell_rate, 0, '.', ' ')
-            );
+            $lines[] = '💳 <b>' . __('bot.banks.best_sell', [
+                'bank' => $bestSell->bank_name,
+                'rate' => number_format((float) $bestSell->sell_rate, 0, '.', ' ')
+            ], $lang) . '</b>';
         }
 
         $lines[] = '';
