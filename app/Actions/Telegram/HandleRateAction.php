@@ -114,7 +114,7 @@ class HandleRateAction
             '',
             "{$emoji} " . __('bot.rates.weekly_change', locale: $lang) . ": <b>{$changeText}</b>",
             '',
-            '<i>' . __('bot.rates.updated_at', ['time' => now('Asia/Tashkent')->format('H:i d.m.Y')], $lang) . '</i>',
+            '<i>' . __('bot.rates.updated_at', ['time' => now('Asia/Tashkent')->format('d.m.Y H:i')], $lang) . '</i>',
         ];
 
         return implode("\n", $lines);

@@ -98,7 +98,7 @@ class HandleConvertAction
             '',
             $result->formatDetailed(),
             '',
-            '<i>' . now('Asia/Tashkent')->format('H:i d.m.Y') . '</i>',
+            '<i>' . now('Asia/Tashkent')->format('d.m.Y H:i') . '</i>',
         ];
 
         return implode("\n", $lines);

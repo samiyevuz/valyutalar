@@ -193,7 +193,7 @@ class CurrencyService
         }
 
         $lines[] = '';
-        $lines[] = '<i>' . __('bot.rates.updated_at', ['time' => now('Asia/Tashkent')->format('H:i d.m.Y')], $lang) . '</i>';
+        $lines[] = '<i>' . __('bot.rates.updated_at', ['time' => now('Asia/Tashkent')->format('d.m.Y H:i')], $lang) . '</i>';
 
         return implode("\n", $lines);
     }
