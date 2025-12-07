@@ -79,11 +79,13 @@ class HandleBanksAction
         try {
             if ($messageId) {
                 try {
+                    // Add main menu button to keyboard
+                    $keyboard = CurrencyKeyboard::buildForBanks($user->language);
                     $result = $telegram->editMessageText(
                         $chatId,
                         $messageId,
                         $message,
-                        CurrencyKeyboard::buildForBanks($user->language)
+                        $keyboard
                     );
                 } catch (\Exception $e) {
                     // If edit fails, delete old message and send new one
@@ -93,17 +95,21 @@ class HandleBanksAction
                     } catch (\Exception $deleteError) {
                         // Ignore delete errors
                     }
+                    // Add main menu button to keyboard
+                    $keyboard = CurrencyKeyboard::buildForBanks($user->language);
                     $result = $telegram->sendMessage(
                         $chatId,
                         $message,
-                        CurrencyKeyboard::buildForBanks($user->language)
+                        $keyboard
                     );
                 }
             } else {
+                // Add main menu button to keyboard
+                $keyboard = CurrencyKeyboard::buildForBanks($user->language);
                 $result = $telegram->sendMessage(
                     $chatId,
                     $message,
-                    CurrencyKeyboard::buildForBanks($user->language)
+                    $keyboard
                 );
             }
             

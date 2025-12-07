@@ -19,6 +19,8 @@ class CurrencyKeyboard
             ->button('📊 ' . __('bot.buttons.all_rates', locale: $lang), "{$action}:all")
             ->row()
             ->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:main')
+            ->row()
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
             ->build();
     }
 
@@ -41,6 +43,7 @@ class CurrencyKeyboard
         }
 
         $builder->row()->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:main');
+        $builder->row()->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main');
 
         return $builder->build();
     }
@@ -56,6 +59,8 @@ class CurrencyKeyboard
             ->button(Currency::GBP->flag() . ' GBP', 'history:GBP')
             ->row()
             ->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:main')
+            ->row()
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
             ->build();
     }
 
@@ -70,6 +75,8 @@ class CurrencyKeyboard
             ->button('365 ' . __('bot.history.days', locale: $lang), "history:{$currency}:365")
             ->row()
             ->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:history')
+            ->row()
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
             ->build();
     }
 
@@ -83,6 +90,8 @@ class CurrencyKeyboard
             ->button(Currency::RUB->flag() . ' RUB', 'banks:RUB')
             ->row()
             ->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:main')
+            ->row()
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
             ->build();
     }
 }

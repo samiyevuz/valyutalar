@@ -82,10 +82,12 @@ class HandleConvertAction
         $message .= "• <code>500 евро</code>\n\n";
         $message .= "<i>" . __('bot.convert.hint') . "</i>";
 
+        // Add main menu button to keyboard
+        $keyboard = CurrencyKeyboard::buildForConversion('from', $user->language);
         $telegram->sendMessage(
             $chatId,
             $message,
-            CurrencyKeyboard::buildForConversion('from', $user->language)
+            $keyboard
         );
     }
 

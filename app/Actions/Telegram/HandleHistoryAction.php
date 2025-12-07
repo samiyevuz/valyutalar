@@ -76,19 +76,21 @@ class HandleHistoryAction
                     'days' => $days,
                 ]);
                 $errorMessage = '❌ ' . __('bot.history.no_data', locale: $user->language);
+                // Add main menu button to keyboard
+                $keyboard = CurrencyKeyboard::buildForHistory($user->language);
                 if ($messageId) {
                     try {
                         $telegram->editMessageText(
                             $chatId,
                             $messageId,
                             $errorMessage,
-                            CurrencyKeyboard::buildForHistory($user->language)
+                            $keyboard
                         );
                     } catch (\Exception $e) {
-                        $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+                        $telegram->sendMessage($chatId, $errorMessage, $keyboard);
                     }
                 } else {
-                    $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+                    $telegram->sendMessage($chatId, $errorMessage, $keyboard);
                 }
                 return;
             }
@@ -103,17 +105,23 @@ class HandleHistoryAction
             $errorMessage = '❌ ' . __('bot.errors.api_error', locale: $user->language);
             if ($messageId) {
                 try {
+                    // Add main menu button to keyboard
+                    $keyboard = CurrencyKeyboard::buildForHistory($user->language);
                     $telegram->editMessageText(
                         $chatId,
                         $messageId,
                         $errorMessage,
-                        CurrencyKeyboard::buildForHistory($user->language)
+                        $keyboard
                     );
                 } catch (\Exception $editError) {
-                    $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+                    // Add main menu button to keyboard
+                    $keyboard = CurrencyKeyboard::buildForHistory($user->language);
+                    $telegram->sendMessage($chatId, $errorMessage, $keyboard);
                 }
             } else {
-                $telegram->sendMessage($chatId, $errorMessage, CurrencyKeyboard::buildForHistory($user->language));
+                // Add main menu button to keyboard
+                $keyboard = CurrencyKeyboard::buildForHistory($user->language);
+                $telegram->sendMessage($chatId, $errorMessage, $keyboard);
             }
             return;
         }
@@ -134,11 +142,13 @@ class HandleHistoryAction
                     // Ignore if delete fails
                 }
             }
+            // Add main menu button to keyboard
+            $keyboard = CurrencyKeyboard::buildPeriodSelector($currency, $user->language);
             $telegram->sendPhoto(
                 $chatId,
                 $chartUrl,
                 $caption,
-                CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                $keyboard
             );
         } else {
             // Fallback to text chart
@@ -147,26 +157,32 @@ class HandleHistoryAction
             
             if ($messageId) {
                 try {
+                    // Add main menu button to keyboard
+                    $keyboard = CurrencyKeyboard::buildPeriodSelector($currency, $user->language);
                     $telegram->editMessageText(
                         $chatId,
                         $messageId,
                         $fullMessage,
-                        CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                        $keyboard
                     );
                 } catch (\Exception $e) {
                     // If edit fails, send new message
                     \Log::warning('Failed to edit history message, sending new one', ['error' => $e->getMessage()]);
+                    // Add main menu button to keyboard
+                    $keyboard = CurrencyKeyboard::buildPeriodSelector($currency, $user->language);
                     $telegram->sendMessage(
                         $chatId,
                         $fullMessage,
-                        CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                        $keyboard
                     );
                 }
             } else {
+                // Add main menu button to keyboard
+                $keyboard = CurrencyKeyboard::buildPeriodSelector($currency, $user->language);
                 $telegram->sendMessage(
                     $chatId,
                     $fullMessage,
-                    CurrencyKeyboard::buildPeriodSelector($currency, $user->language)
+                    $keyboard
                 );
             }
         }

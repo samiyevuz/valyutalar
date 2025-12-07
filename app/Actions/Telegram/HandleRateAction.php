@@ -25,11 +25,12 @@ class HandleRateAction
             return;
         }
 
-        // Show currency selection keyboard
+        // Show currency selection keyboard with main menu button
+        $keyboard = CurrencyKeyboard::build('rate', $user->language);
         $telegram->sendMessage(
             $update->getChatId(),
             '💱 ' . __('bot.rates.select_currency'),
-            CurrencyKeyboard::build('rate', $user->language)
+            $keyboard
         );
     }
 
