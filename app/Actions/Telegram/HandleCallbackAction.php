@@ -118,27 +118,49 @@ class HandleCallbackAction
     private function handleLanguageSelection(
         int $chatId,
         ?int $messageId,
-        string $langCode,
+        ?string $langCode,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        $language = Language::fromCode($langCode);
-        $user->setLanguage($language);
-
-        app()->setLocale($langCode);
-
-        $message = "✅ " . __('bot.language.changed', ['language' => $language->label()], $langCode) . "\n\n";
-        $message .= __('bot.welcome', ['name' => $user->getDisplayName()], $langCode);
-
-        if ($messageId) {
-            $telegram->editMessageText(
+        if (empty($langCode)) {
+            \Log::warning('Language selection: langCode is empty');
+            $telegram->sendMessage(
                 $chatId,
-                $messageId,
-                $message,
-                MainMenuKeyboard::build($langCode)
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
             );
-        } else {
-            $telegram->sendMessage($chatId, $message, MainMenuKeyboard::build($langCode));
+            return;
+        }
+
+        try {
+            $language = Language::fromCode($langCode);
+            $user->setLanguage($language);
+
+            app()->setLocale($langCode);
+
+            $message = "✅ " . __('bot.language.changed', ['language' => $language->label()], $langCode) . "\n\n";
+            $message .= __('bot.welcome', ['name' => $user->getDisplayName()], $langCode);
+
+            if ($messageId) {
+                $telegram->editMessageText(
+                    $chatId,
+                    $messageId,
+                    $message,
+                    MainMenuKeyboard::build($langCode)
+                );
+            } else {
+                $telegram->sendMessage($chatId, $message, MainMenuKeyboard::build($langCode));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Language selection error', [
+                'lang_code' => $langCode,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
         }
     }
 
@@ -243,15 +265,15 @@ class HandleCallbackAction
 
     private function handleRateSelection(
         int $chatId,
-        string $currency,
+        ?string $currency,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        if (!$currency) {
+        if (empty($currency)) {
             \Log::warning('Rate selection: currency is empty');
             $telegram->sendMessage(
                 $chatId,
-                '❌ ' . __('bot.errors.currency_not_found', ['currency' => ''], $user->language),
+                '❌ ' . __('bot.errors.currency_not_found', locale: $user->language),
                 MainMenuKeyboard::build($user->language)
             );
             return;
@@ -276,15 +298,15 @@ class HandleCallbackAction
 
     private function handleBanksSelection(
         int $chatId,
-        string $currency,
+        ?string $currency,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        if (!$currency) {
+        if (empty($currency)) {
             \Log::warning('Banks selection: currency is empty');
             $telegram->sendMessage(
                 $chatId,
-                '❌ ' . __('bot.errors.currency_not_found', ['currency' => ''], $user->language),
+                '❌ ' . __('bot.errors.currency_not_found', locale: $user->language),
                 MainMenuKeyboard::build($user->language)
             );
             return;
@@ -309,7 +331,7 @@ class HandleCallbackAction
 
     private function handleHistorySelection(
         int $chatId,
-        string $currency,
+        ?string $currency,
         ?string $days,
         TelegramUser $user,
         TelegramService $telegram
@@ -323,7 +345,17 @@ class HandleCallbackAction
             'message_id' => $messageId,
         ]);
         
-        if (!$days) {
+        if (empty($currency)) {
+            \Log::warning('History selection: currency is empty');
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.currency_not_found', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
+        
+        if (empty($days)) {
             // Show period selection
             $this->sendOrEditMessage(
                 $chatId,
@@ -356,36 +388,66 @@ class HandleCallbackAction
 
     private function handleConvertSelection(
         int $chatId,
-        string $direction,
-        string $currency,
+        ?string $direction,
+        ?string $currency,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
         $lang = $user->language;
 
-        if ($direction === 'from') {
-            $user->setState('convert_awaiting_to', ['from' => $currency]);
-
-            $telegram->sendMessage(
-                $chatId,
-                '🔄 ' . __('bot.convert.select_to', ['currency' => $currency], $lang),
-                CurrencyKeyboard::buildForConversion('to', $lang)
-            );
-        } elseif ($direction === 'to') {
-            $stateData = $user->state_data ?? [];
-            $fromCurrency = $stateData['from'] ?? 'USD';
-
-            $user->setState('convert_awaiting_amount', [
-                'from' => $fromCurrency,
-                'to' => $currency,
+        if (empty($direction) || empty($currency)) {
+            \Log::warning('Convert selection: direction or currency is empty', [
+                'direction' => $direction,
+                'currency' => $currency,
             ]);
-
             $telegram->sendMessage(
                 $chatId,
-                '💰 ' . __('bot.convert.enter_amount', [
+                '❌ ' . __('bot.errors.api_error', locale: $lang),
+                MainMenuKeyboard::build($lang)
+            );
+            return;
+        }
+
+        try {
+            if ($direction === 'from') {
+                $user->setState('convert_awaiting_to', ['from' => $currency]);
+
+                $telegram->sendMessage(
+                    $chatId,
+                    '🔄 ' . __('bot.convert.select_to', ['currency' => $currency], $lang),
+                    CurrencyKeyboard::buildForConversion('to', $lang)
+                );
+            } elseif ($direction === 'to') {
+                $stateData = $user->state_data ?? [];
+                $fromCurrency = $stateData['from'] ?? 'USD';
+
+                if (empty($fromCurrency)) {
+                    $fromCurrency = 'USD';
+                }
+
+                $user->setState('convert_awaiting_amount', [
                     'from' => $fromCurrency,
                     'to' => $currency,
-                ], $lang)
+                ]);
+
+                $telegram->sendMessage(
+                    $chatId,
+                    '💰 ' . __('bot.convert.enter_amount', [
+                        'from' => $fromCurrency,
+                        'to' => $currency,
+                    ], $lang)
+                );
+            }
+        } catch (\Exception $e) {
+            \Log::error('Convert selection error', [
+                'direction' => $direction,
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $lang),
+                MainMenuKeyboard::build($lang)
             );
         }
     }
@@ -393,7 +455,7 @@ class HandleCallbackAction
     private function handleAlertsAction(
         int $chatId,
         ?int $messageId,
-        string $action,
+        ?string $action,
         ?string $param1,
         ?string $param2,
         TelegramUser $user,
@@ -401,80 +463,168 @@ class HandleCallbackAction
     ): void {
         $lang = $user->language;
 
-        match ($action) {
-            'create' => $this->showAlertCreation($chatId, $user, $telegram),
-            'currency' => $this->showAlertCondition($chatId, $param1, $user, $telegram),
-            'condition' => $this->startAlertAmountInput($chatId, $param1, $param2, $user, $telegram),
-            'delete_menu' => $this->showAlertDeleteMenu($chatId, $user, $telegram),
-            'delete' => $this->confirmDeleteAlert($chatId, (int) $param1, $user, $telegram),
-            'confirm_delete' => $this->deleteAlert($chatId, (int) $param1, $user, $telegram),
-            default => null,
-        };
+        if (empty($action)) {
+            \Log::warning('Alerts action: action is empty');
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $lang),
+                MainMenuKeyboard::build($lang)
+            );
+            return;
+        }
+
+        try {
+            match ($action) {
+                'create' => $this->showAlertCreation($chatId, $user, $telegram),
+                'currency' => $this->showAlertCondition($chatId, $param1 ?? null, $user, $telegram),
+                'condition' => $this->startAlertAmountInput($chatId, $param1 ?? null, $param2 ?? null, $user, $telegram),
+                'delete_menu' => $this->showAlertDeleteMenu($chatId, $user, $telegram),
+                'delete' => $this->confirmDeleteAlert($chatId, (int) ($param1 ?? 0), $user, $telegram),
+                'confirm_delete' => $this->deleteAlert($chatId, (int) ($param1 ?? 0), $user, $telegram),
+                default => null,
+            };
+        } catch (\Exception $e) {
+            \Log::error('Alerts action error', [
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $lang),
+                MainMenuKeyboard::build($lang)
+            );
+        }
     }
 
     private function showAlertCreation(int $chatId, TelegramUser $user, TelegramService $telegram): void
     {
-        $telegram->sendMessage(
-            $chatId,
-            '🔔 ' . __('bot.alerts.select_currency', locale: $user->language),
-            AlertsKeyboard::buildCurrencySelector($user->language)
-        );
+        try {
+            $telegram->sendMessage(
+                $chatId,
+                '🔔 ' . __('bot.alerts.select_currency', locale: $user->language),
+                AlertsKeyboard::buildCurrencySelector($user->language)
+            );
+        } catch (\Exception $e) {
+            \Log::error('Show alert creation error', ['error' => $e->getMessage()]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function showAlertCondition(
         int $chatId,
-        string $currency,
+        ?string $currency,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        $currentRate = $this->currencyService->getRate($currency);
-        $rateText = $currentRate ? number_format($currentRate->rate, 2, '.', ' ') : '—';
+        if (empty($currency)) {
+            \Log::warning('Show alert condition: currency is empty');
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.currency_not_found', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
 
-        $message = "🔔 <b>{$currency}/UZS</b>\n\n";
-        $message .= __('bot.alerts.current_rate', locale: $user->language) . ": <b>{$rateText}</b> UZS\n\n";
-        $message .= __('bot.alerts.select_condition', locale: $user->language);
+        try {
+            $currentRate = $this->currencyService->getRate($currency);
+            $rateText = $currentRate ? number_format($currentRate->rate, 2, '.', ' ') : '—';
 
-        $telegram->sendMessage(
-            $chatId,
-            $message,
-            AlertsKeyboard::buildConditionSelector($currency, $user->language)
-        );
+            $message = "🔔 <b>{$currency}/UZS</b>\n\n";
+            $message .= __('bot.alerts.current_rate', locale: $user->language) . ": <b>{$rateText}</b> UZS\n\n";
+            $message .= __('bot.alerts.select_condition', locale: $user->language);
+
+            $telegram->sendMessage(
+                $chatId,
+                $message,
+                AlertsKeyboard::buildConditionSelector($currency, $user->language)
+            );
+        } catch (\Exception $e) {
+            \Log::error('Show alert condition error', [
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function startAlertAmountInput(
         int $chatId,
-        string $currency,
-        string $condition,
+        ?string $currency,
+        ?string $condition,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        $user->setState('alert_awaiting_amount', [
-            'currency' => $currency,
-            'condition' => $condition,
-        ]);
-
-        $conditionText = $condition === 'above'
-            ? __('bot.alerts.above', locale: $user->language)
-            : __('bot.alerts.below', locale: $user->language);
-
-        $telegram->sendMessage(
-            $chatId,
-            '💰 ' . __('bot.alerts.enter_amount', [
+        if (empty($currency) || empty($condition)) {
+            \Log::warning('Start alert amount input: currency or condition is empty', [
                 'currency' => $currency,
-                'condition' => $conditionText,
-            ], $user->language)
-        );
+                'condition' => $condition,
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
+
+        try {
+            $user->setState('alert_awaiting_amount', [
+                'currency' => $currency,
+                'condition' => $condition,
+            ]);
+
+            $conditionText = $condition === 'above'
+                ? __('bot.alerts.above', locale: $user->language)
+                : __('bot.alerts.below', locale: $user->language);
+
+            $telegram->sendMessage(
+                $chatId,
+                '💰 ' . __('bot.alerts.enter_amount', [
+                    'currency' => $currency,
+                    'condition' => $conditionText,
+                ], $user->language)
+            );
+        } catch (\Exception $e) {
+            \Log::error('Start alert amount input error', [
+                'currency' => $currency,
+                'condition' => $condition,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function showAlertDeleteMenu(int $chatId, TelegramUser $user, TelegramService $telegram): void
     {
-        $alerts = $this->alertService->getUserAlerts($user);
+        try {
+            $alerts = $this->alertService->getUserAlerts($user);
 
-        $telegram->sendMessage(
-            $chatId,
-            '🗑️ ' . __('bot.alerts.select_to_delete', locale: $user->language),
-            AlertsKeyboard::buildDeleteMenu($alerts, $user->language)
-        );
+            $telegram->sendMessage(
+                $chatId,
+                '🗑️ ' . __('bot.alerts.select_to_delete', locale: $user->language),
+                AlertsKeyboard::buildDeleteMenu($alerts, $user->language)
+            );
+        } catch (\Exception $e) {
+            \Log::error('Show alert delete menu error', ['error' => $e->getMessage()]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function confirmDeleteAlert(
@@ -483,23 +633,67 @@ class HandleCallbackAction
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        $telegram->sendMessage(
-            $chatId,
-            '⚠️ ' . __('bot.alerts.confirm_delete', locale: $user->language),
-            AlertsKeyboard::buildConfirmation($alertId, $user->language)
-        );
+        if ($alertId <= 0) {
+            \Log::warning('Confirm delete alert: invalid alert ID', ['alert_id' => $alertId]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
+
+        try {
+            $telegram->sendMessage(
+                $chatId,
+                '⚠️ ' . __('bot.alerts.confirm_delete', locale: $user->language),
+                AlertsKeyboard::buildConfirmation($alertId, $user->language)
+            );
+        } catch (\Exception $e) {
+            \Log::error('Confirm delete alert error', [
+                'alert_id' => $alertId,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function deleteAlert(int $chatId, int $alertId, TelegramUser $user, TelegramService $telegram): void
     {
-        $deleted = $this->alertService->deleteAlert($alertId, $user);
+        if ($alertId <= 0) {
+            \Log::warning('Delete alert: invalid alert ID', ['alert_id' => $alertId]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
 
-        $message = $deleted
-            ? '✅ ' . __('bot.alerts.deleted', locale: $user->language)
-            : '❌ ' . __('bot.alerts.delete_failed', locale: $user->language);
+        try {
+            $deleted = $this->alertService->deleteAlert($alertId, $user);
 
-        $messageId = $this->currentUpdate?->getCallbackMessageId();
-        $this->showAlertsMenu($chatId, $messageId, $user, $telegram, $message);
+            $message = $deleted
+                ? '✅ ' . __('bot.alerts.deleted', locale: $user->language)
+                : '❌ ' . __('bot.alerts.delete_failed', locale: $user->language);
+
+            $messageId = $this->currentUpdate?->getCallbackMessageId();
+            $this->showAlertsMenu($chatId, $messageId, $user, $telegram, $message);
+        } catch (\Exception $e) {
+            \Log::error('Delete alert error', [
+                'alert_id' => $alertId,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function showAlertsMenu(
@@ -509,49 +703,89 @@ class HandleCallbackAction
         TelegramService $telegram,
         ?string $prefix = null
     ): void {
-        $alerts = $this->alertService->getUserAlerts($user);
-        $message = $this->alertService->formatAlertsMessage($user);
+        try {
+            $alerts = $this->alertService->getUserAlerts($user);
+            $message = $this->alertService->formatAlertsMessage($user);
 
-        if ($prefix) {
-            $message = $prefix . "\n\n" . $message;
+            if ($prefix) {
+                $message = $prefix . "\n\n" . $message;
+            }
+
+            $this->sendOrEditMessage($chatId, $messageId, $message, AlertsKeyboard::build($alerts, $user->language), $telegram);
+        } catch (\Exception $e) {
+            \Log::error('Show alerts menu error', ['error' => $e->getMessage()]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
         }
-
-        $this->sendOrEditMessage($chatId, $messageId, $message, AlertsKeyboard::build($alerts, $user->language), $telegram);
     }
 
     private function handleProfileAction(
         int $chatId,
         ?int $messageId,
-        string $action,
+        ?string $action,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        match ($action) {
-            'language' => $telegram->sendMessage(
+        if (empty($action)) {
+            \Log::warning('Profile action: action is empty');
+            $telegram->sendMessage(
                 $chatId,
-                '🌐 ' . __('bot.profile.select_language', locale: $user->language),
-                LanguageKeyboard::buildWithBack($user->language)
-            ),
-            'favorites' => app(HandleFavoritesAction::class)->execute(
-                new TelegramUpdateDTO(0, null, null, null),
-                $user,
-                $telegram
-            ),
-            'toggle_digest' => $this->toggleDigest($chatId, $user, $telegram),
-            default => null,
-        };
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
+
+        try {
+            match ($action) {
+                'language' => $telegram->sendMessage(
+                    $chatId,
+                    '🌐 ' . __('bot.profile.select_language', locale: $user->language),
+                    LanguageKeyboard::buildWithBack($user->language)
+                ),
+                'favorites' => app(HandleFavoritesAction::class)->execute(
+                    new TelegramUpdateDTO(0, null, null, null),
+                    $user,
+                    $telegram
+                ),
+                'toggle_digest' => $this->toggleDigest($chatId, $user, $telegram),
+                default => null,
+            };
+        } catch (\Exception $e) {
+            \Log::error('Profile action error', [
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function toggleDigest(int $chatId, TelegramUser $user, TelegramService $telegram): void
     {
-        $enabled = $user->toggleDigest();
+        try {
+            $enabled = $user->toggleDigest();
 
-        $message = $enabled
-            ? '✅ ' . __('bot.profile.digest_enabled', locale: $user->language)
-            : '🔕 ' . __('bot.profile.digest_disabled', locale: $user->language);
+            $message = $enabled
+                ? '✅ ' . __('bot.profile.digest_enabled', locale: $user->language)
+                : '🔕 ' . __('bot.profile.digest_disabled', locale: $user->language);
 
-        $messageId = $this->currentUpdate?->getCallbackMessageId();
-        $this->showProfileMenu($chatId, $messageId, $user, $telegram, $message);
+            $messageId = $this->currentUpdate?->getCallbackMessageId();
+            $this->showProfileMenu($chatId, $messageId, $user, $telegram, $message);
+        } catch (\Exception $e) {
+            \Log::error('Toggle digest error', ['error' => $e->getMessage()]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function showProfileMenu(
@@ -561,47 +795,79 @@ class HandleCallbackAction
         TelegramService $telegram,
         ?string $prefix = null
     ): void {
-        // Refresh user from DB
-        $user->refresh();
-        
-        $action = app(HandleProfileAction::class);
-        $update = new TelegramUpdateDTO(0, null, null, null);
-        
-        // Execute profile action - it will handle messageId internally if needed
-        $action->execute($update, $user, $telegram);
+        try {
+            // Refresh user from DB
+            $user->refresh();
+            
+            $action = app(HandleProfileAction::class);
+            $update = new TelegramUpdateDTO(0, null, null, null);
+            
+            // Execute profile action - it will handle messageId internally if needed
+            $action->execute($update, $user, $telegram);
+        } catch (\Exception $e) {
+            \Log::error('Show profile menu error', ['error' => $e->getMessage()]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+        }
     }
 
     private function handleFavoritesAction(
         int $chatId,
         ?int $messageId,
-        string $action,
+        ?string $action,
         ?string $currency,
         TelegramUser $user,
         TelegramService $telegram
     ): void {
-        if ($action === 'toggle' && $currency) {
-            $favorites = $user->getFavoriteCurrencies();
-
-            if (in_array($currency, $favorites)) {
-                $favorites = array_values(array_diff($favorites, [$currency]));
-            } else {
-                $favorites[] = $currency;
-            }
-
-            $user->setFavoriteCurrencies($favorites);
-
-            // Update keyboard
-            if ($messageId) {
-                $telegram->editMessageReplyMarkup(
-                    $chatId,
-                    $messageId,
-                    ProfileKeyboard::buildFavoritesEditor($favorites, $user->language)
-                );
-            }
-        } elseif ($action === 'save') {
+        if (empty($action)) {
+            \Log::warning('Favorites action: action is empty');
             $telegram->sendMessage(
                 $chatId,
-                '✅ ' . __('bot.favorites.saved', locale: $user->language),
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
+                MainMenuKeyboard::build($user->language)
+            );
+            return;
+        }
+
+        try {
+            if ($action === 'toggle' && $currency) {
+                $favorites = $user->getFavoriteCurrencies();
+
+                if (in_array($currency, $favorites)) {
+                    $favorites = array_values(array_diff($favorites, [$currency]));
+                } else {
+                    $favorites[] = $currency;
+                }
+
+                $user->setFavoriteCurrencies($favorites);
+
+                // Update keyboard
+                if ($messageId) {
+                    $telegram->editMessageReplyMarkup(
+                        $chatId,
+                        $messageId,
+                        ProfileKeyboard::buildFavoritesEditor($favorites, $user->language)
+                    );
+                }
+            } elseif ($action === 'save') {
+                $telegram->sendMessage(
+                    $chatId,
+                    '✅ ' . __('bot.favorites.saved', locale: $user->language),
+                    MainMenuKeyboard::build($user->language)
+                );
+            }
+        } catch (\Exception $e) {
+            \Log::error('Favorites action error', [
+                'action' => $action,
+                'currency' => $currency,
+                'error' => $e->getMessage(),
+            ]);
+            $telegram->sendMessage(
+                $chatId,
+                '❌ ' . __('bot.errors.api_error', locale: $user->language),
                 MainMenuKeyboard::build($user->language)
             );
         }

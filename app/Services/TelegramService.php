@@ -275,11 +275,11 @@ class TelegramService
             ['command' => 'start', 'description' => 'Botni ishga tushirish'],
             ['command' => 'help', 'description' => 'Yordam'],
             ['command' => 'rate', 'description' => 'Valyuta kurslari'],
-            ['command' => 'convert', 'description' => 'Valyutani konvertatsiya qilish'],
+            ['command' => 'convert', 'description' => 'Valyutani aylantirish'],
             ['command' => 'history', 'description' => 'Kurslar tarixi'],
             ['command' => 'banks', 'description' => 'Bank kurslari'],
-            ['command' => 'alerts', 'description' => 'Kurs ogohlantirishlari'],
-            ['command' => 'profile', 'description' => 'Sizning profilingiz'],
+            ['command' => 'alerts', 'description' => 'Kurs xabarnomalari'],
+            ['command' => 'profile', 'description' => 'Sizning hisobingiz'],
         ], 'uz');
     }
 
