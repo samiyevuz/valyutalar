@@ -26,6 +26,9 @@ class TelegramWebhookController extends Controller
     public function handle(Request $request): JsonResponse
     {
         // ALWAYS log - even if everything fails
+        // Use error_log first (most reliable)
+        @error_log('[WEBHOOK] === WEBHOOK START === ' . date('Y-m-d H:i:s') . ' | IP: ' . $request->ip() . ' | Method: ' . $request->method() . ' | URL: ' . $request->fullUrl());
+        
         $this->forceLog('=== WEBHOOK START ===', [
             'time' => date('Y-m-d H:i:s'),
             'ip' => $request->ip(),
@@ -34,9 +37,6 @@ class TelegramWebhookController extends Controller
             'content_type' => $request->header('Content-Type'),
             'user_agent' => $request->header('User-Agent'),
         ]);
-
-        // Also log to PHP error log immediately
-        error_log('[WEBHOOK] Request received: ' . $request->method() . ' ' . $request->fullUrl());
 
         try {
             $rawBody = $request->getContent();
