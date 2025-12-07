@@ -17,7 +17,7 @@ class AlertsKeyboard
                 ->button('🗑️ ' . __('bot.alerts.delete', locale: $lang), 'alerts:delete_menu');
         }
 
-        $builder->row()->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:main');
+        $builder->row()->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main');
 
         return $builder->build();
     }

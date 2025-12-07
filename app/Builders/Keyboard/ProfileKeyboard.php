@@ -20,7 +20,7 @@ class ProfileKeyboard
             ->row()
             ->button($digestButton, 'profile:toggle_digest')
             ->row()
-            ->button('◀️ ' . __('bot.buttons.back', locale: $lang), 'menu:main')
+            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
             ->build();
     }
 
