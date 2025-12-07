@@ -56,9 +56,11 @@ class CurrencyRate extends Model
         int $days = 30,
         string $source = 'cbu'
     ): Collection {
+        $startDate = now('Asia/Tashkent')->subDays($days)->startOfDay();
+        
         return self::forCurrency($currency)
             ->fromSource($source)
-            ->where('rate_date', '>=', now()->subDays($days))
+            ->where('rate_date', '>=', $startDate)
             ->orderBy('rate_date', 'asc')
             ->get();
     }

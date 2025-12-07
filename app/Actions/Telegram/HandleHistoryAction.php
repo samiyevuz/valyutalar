@@ -57,6 +57,10 @@ class HandleHistoryAction
         $telegram->sendChatAction($chatId, 'typing');
 
         try {
+            // Clear cache to force fresh data fetch
+            $cacheKey = "currency_history_{$currency}_{$days}";
+            \Illuminate\Support\Facades\Cache::forget($cacheKey);
+            
             $rates = $this->currencyService->getHistoricalRates($currency, $days);
             \Log::info('Historical rates fetched', [
                 'currency' => $currency,
@@ -64,14 +68,26 @@ class HandleHistoryAction
                 'count' => $rates->count(),
             ]);
 
-            $trend = $this->currencyService->getTrend($currency, $days);
-            \Log::info('Trend calculated', [
-                'currency' => $currency,
-                'trend' => $trend,
-            ]);
+            // If no data, try to fetch current rate and use it as fallback
+            if ($rates->isEmpty()) {
+                \Log::warning('No historical data found, trying to fetch current rate', [
+                    'currency' => $currency,
+                    'days' => $days,
+                ]);
+                
+                // Try to get current rate and create a single data point
+                $currentRate = $this->currencyService->getRate($currency);
+                if ($currentRate) {
+                    $rates = collect([$currentRate]);
+                    \Log::info('Using current rate as fallback', [
+                        'currency' => $currency,
+                        'rate' => $currentRate->rate,
+                    ]);
+                }
+            }
 
             if ($rates->isEmpty()) {
-                \Log::warning('No historical data found', [
+                \Log::error('No historical data found and no current rate available', [
                     'currency' => $currency,
                     'days' => $days,
                 ]);
@@ -94,6 +110,12 @@ class HandleHistoryAction
                 }
                 return;
             }
+
+            $trend = $this->currencyService->getTrend($currency, min($days, $rates->count()));
+            \Log::info('Trend calculated', [
+                'currency' => $currency,
+                'trend' => $trend,
+            ]);
         } catch (\Exception $e) {
             \Log::error('Error fetching historical rates', [
                 'currency' => $currency,

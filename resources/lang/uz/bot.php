@@ -11,13 +11,13 @@ return [
     
     'menu' => [
         'main_title' => 'Asosiy menyu',
-        'rates' => '💱 Valyuta kurslari',
-        'convert' => '💱 Aylantirish',
-        'banks' => '🏦 Bank kurslari',
-        'history' => '📊 Kurslar tarixi',
-        'alerts' => '🔔 Xabarnomalar',
-        'profile' => '👤 Hisob',
-        'help' => '❓ Yordam',
+        'rates' => 'Valyuta kurslari',
+        'convert' => 'Aylantirish',
+        'banks' => 'Bank kurslari',
+        'history' => 'Kurslar tarixi',
+        'alerts' => 'Xabarnomalar',
+        'profile' => 'Hisob',
+        'help' => 'Yordam',
     ],
     
     'buttons' => [
@@ -30,7 +30,7 @@ return [
     ],
     
     'rates' => [
-        'title' => '💱 Valyuta kurslari',
+        'title' => 'Valyuta kurslari',
         'select_currency' => 'Kursni ko\'rish uchun valyutani tanlang:',
         'current_rate' => 'Joriy kurs',
         'weekly_change' => 'Haftalik o\'zgarish',
@@ -40,7 +40,7 @@ return [
     
     'convert' => [
         'title' => 'Valyuta aylantirish',
-        'instructions' => '💱 Valyuta aylantirish\n\nMenga xabar yuboring:\n• 100 USD\n• 100 USD UZS ga\n• 100 USD -> UZS\n\nYoki quyidagi menyudan valyutalarni tanlang:',
+        'instructions' => 'Valyuta aylantirish\n\nMenga xabar yuboring:\n• 100 USD\n• 100 USD UZS ga\n• 100 USD -> UZS\n\nYoki quyidagi menyudan valyutalarni tanlang:',
         'examples' => 'Misollar',
         'hint' => 'Yoki shunchaki summani valyuta bilan yozing, masalan "100 USD"',
         'result' => 'Aylantirish natijasi',
@@ -69,7 +69,7 @@ return [
     ],
     
     'banks' => [
-        'title' => '🏦 Bank kurslari - :currency',
+        'title' => 'Bank kurslari - :currency',
         'select_currency' => 'Bank kurslarini ko\'rish uchun valyutani tanlang:',
         'bank' => 'Bank',
         'buy' => 'Sotib olish',
@@ -81,7 +81,7 @@ return [
     ],
     
     'alerts' => [
-        'title' => '🔔 Kurs xabarnomalari',
+        'title' => 'Kurs xabarnomalari',
         'your_alerts' => 'Sizning faol xabarnomalaringiz:',
         'no_alerts' => 'Sizda faol xabarnomalar yo\'q.\n\nValyuta kursi maqsadli narxga yetganda xabar olish uchun xabarnoma yarating.',
         'create' => 'Xabarnoma yaratish',
@@ -155,7 +155,7 @@ return [
     ],
     
     'digest' => [
-        'title' => '📊 Kunlik valyuta ma\'lumoti',
+        'title' => 'Kunlik valyuta ma\'lumoti',
         'greeting' => 'Xayrli tong! Bugungi valyuta kurslari yangilanishi:',
         'rates_title' => 'Joriy kurslar:',
         'trend_title' => 'O\'zgarishlar (24 soat):',

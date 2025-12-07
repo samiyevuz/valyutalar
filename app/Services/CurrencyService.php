@@ -93,28 +93,63 @@ class CurrencyService
         $currency = strtoupper($currency);
         $cacheKey = "currency_history_{$currency}_{$days}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($currency, $days) {
+        // Reduce cache time to 5 minutes for more fresh data
+        return Cache::remember($cacheKey, 300, function () use ($currency, $days) {
             // First, try to get from database
             $dbRates = CurrencyRate::getHistoricalRates($currency, $days);
+            
+            \Log::info('Historical rates from DB', [
+                'currency' => $currency,
+                'days' => $days,
+                'count' => $dbRates->count(),
+                'expected_min' => (int)($days * 0.5),
+            ]);
 
-            if ($dbRates->count() >= $days * 0.7) {
-                return $dbRates->map(fn($r) => new CurrencyRateDTO(
+            // If we have at least 50% of expected data, return it
+            if ($dbRates->count() >= max(1, (int)($days * 0.5))) {
+                $mappedRates = $dbRates->map(fn($r) => new CurrencyRateDTO(
                     currencyCode: $r->currency_code,
                     baseCurrency: $r->base_currency,
                     rate: (float) $r->rate,
                     source: $r->source,
                     date: $r->rate_date,
                 ));
+                
+                \Log::info('Returning rates from DB', [
+                    'currency' => $currency,
+                    'count' => $mappedRates->count(),
+                ]);
+                
+                return $mappedRates;
             }
 
             // Fetch from API for missing dates
+            \Log::info('Fetching historical rates from API', [
+                'currency' => $currency,
+                'days' => $days,
+                'db_count' => $dbRates->count(),
+            ]);
+
             $rates = collect();
             $endDate = now('Asia/Tashkent');
             $startDate = now('Asia/Tashkent')->subDays($days);
+            
+            // Get existing dates from DB to avoid duplicate API calls
+            $existingDates = $dbRates->pluck('rate_date')->map(fn($d) => $d->format('Y-m-d'))->toArray();
 
-            for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
+            $fetchedCount = 0;
+            $maxApiCalls = min($days, 30); // Limit API calls to prevent timeout
+            
+            for ($date = $startDate->copy(); $date <= $endDate && $fetchedCount < $maxApiCalls; $date->addDay()) {
                 $dateStr = $date->format('Y-m-d');
+                
+                // Skip if we already have this date in DB
+                if (in_array($dateStr, $existingDates)) {
+                    continue;
+                }
+                
                 $rateData = $this->fetchCbuRatesForDate($dateStr);
+                $fetchedCount++;
 
                 foreach ($rateData as $rate) {
                     if ($rate->currencyCode === $currency) {
@@ -122,9 +157,32 @@ class CurrencyService
                         $this->storeRate($rate);
                     }
                 }
+                
+                // Small delay to avoid rate limiting
+                if ($fetchedCount % 5 === 0) {
+                    usleep(100000); // 0.1 second delay every 5 requests
+                }
             }
 
-            return $rates;
+            // Merge DB rates with newly fetched rates
+            $allRates = $dbRates->map(fn($r) => new CurrencyRateDTO(
+                currencyCode: $r->currency_code,
+                baseCurrency: $r->base_currency,
+                rate: (float) $r->rate,
+                source: $r->source,
+                date: $r->rate_date,
+            ))->merge($rates)->unique(function ($rate) {
+                return $rate->currencyCode . '_' . $rate->date->format('Y-m-d');
+            })->sortBy('date')->values();
+
+            \Log::info('Historical rates fetched', [
+                'currency' => $currency,
+                'total_count' => $allRates->count(),
+                'from_db' => $dbRates->count(),
+                'from_api' => $rates->count(),
+            ]);
+
+            return $allRates;
         });
     }
 
@@ -132,13 +190,36 @@ class CurrencyService
     {
         $rates = $this->getHistoricalRates($currency, $days);
 
-        if ($rates->count() < 2) {
+        if ($rates->isEmpty()) {
+            // Try to get current rate as fallback
+            $currentRate = $this->getRate($currency);
+            if ($currentRate) {
+                return [
+                    'trend' => 'stable',
+                    'change_percent' => 0,
+                    'change_absolute' => 0,
+                    'oldest_rate' => $currentRate->rate,
+                    'latest_rate' => $currentRate->rate,
+                ];
+            }
+            
             return [
                 'trend' => 'stable',
                 'change_percent' => 0,
                 'change_absolute' => 0,
                 'oldest_rate' => 0,
                 'latest_rate' => 0,
+            ];
+        }
+
+        if ($rates->count() < 2) {
+            $singleRate = $rates->first();
+            return [
+                'trend' => 'stable',
+                'change_percent' => 0,
+                'change_absolute' => 0,
+                'oldest_rate' => $singleRate->rate,
+                'latest_rate' => $singleRate->rate,
             ];
         }
 
@@ -260,30 +341,70 @@ class CurrencyService
     private function fetchCbuRatesForDate(string $date): array
     {
         try {
+            // CBU API format: https://cbu.uz/ru/arkhiv-kursov-valyut/json/YYYY-MM-DD/
             $url = $this->cbuUrl . $date . '/';
-            $response = Http::timeout(10)->get($url);
+            
+            \Log::debug('Fetching CBU rates for date', [
+                'date' => $date,
+                'url' => $url,
+            ]);
+            
+            $response = Http::timeout(15)
+                ->retry(2, 500)
+                ->get($url);
 
             if (!$response->successful()) {
+                \Log::warning('CBU historical API failed', [
+                    'date' => $date,
+                    'status' => $response->status(),
+                    'url' => $url,
+                ]);
                 return [];
             }
 
             $data = $response->json();
 
-            if (!is_array($data)) {
+            if (!is_array($data) || empty($data)) {
+                \Log::warning('CBU historical API returned invalid data', [
+                    'date' => $date,
+                    'type' => gettype($data),
+                    'count' => is_array($data) ? count($data) : 0,
+                ]);
                 return [];
             }
 
             $rates = [];
 
             foreach ($data as $item) {
-                $rates[] = CurrencyRateDTO::fromCbuData($item);
+                // Validate required fields
+                if (!isset($item['Ccy']) || !isset($item['Rate'])) {
+                    continue;
+                }
+
+                try {
+                    $rate = CurrencyRateDTO::fromCbuData($item);
+                    $rates[] = $rate;
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to parse CBU historical rate', [
+                        'date' => $date,
+                        'item' => $item,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
+
+            \Log::debug('CBU rates fetched for date', [
+                'date' => $date,
+                'count' => count($rates),
+            ]);
 
             return $rates;
         } catch (\Exception $e) {
-            Log::error('CBU historical API exception', [
+            \Log::error('CBU historical API exception', [
                 'date' => $date,
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
             return [];
         }
