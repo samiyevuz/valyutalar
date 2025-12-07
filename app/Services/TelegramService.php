@@ -353,24 +353,46 @@ class TelegramService
         // Remove any self-closing tags that Telegram doesn't support
         $text = preg_replace('/<(b|i|u|s|code|pre)\s*\/>/i', '<$1>', $text);
         
+        // Remove any invalid characters that might break HTML parsing
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+        
         // Fix unclosed tags - ensure all opening tags have closing tags
+        // Use a more robust approach: parse tags and fix them
         $allowedTags = ['b', 'i', 'u', 's', 'code', 'pre'];
         foreach ($allowedTags as $tag) {
-            // Count opening tags (including self-closing)
-            $openCount = preg_match_all("/<{$tag}(?:\s+[^>]*)?(?<!\/)>/i", $text);
-            $closeCount = preg_match_all("/<\/{$tag}>/i", $text);
+            // Find all opening tags (not self-closing)
+            preg_match_all("/<{$tag}(?:\s+[^>]*)?(?<!\/)>/i", $text, $openMatches, PREG_OFFSET_CAPTURE);
+            // Find all closing tags
+            preg_match_all("/<\/{$tag}>/i", $text, $closeMatches, PREG_OFFSET_CAPTURE);
+            
+            $openCount = count($openMatches[0]);
+            $closeCount = count($closeMatches[0]);
             
             if ($openCount > $closeCount) {
                 // Add missing closing tags at the end
                 $text .= str_repeat("</{$tag}>", $openCount - $closeCount);
             } elseif ($closeCount > $openCount) {
-                // Remove extra closing tags
+                // Remove extra closing tags from the end
                 $text = preg_replace("/<\/{$tag}>/i", '', $text, $closeCount - $openCount);
             }
         }
         
-        // Remove any invalid HTML characters that might cause parsing errors
-        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+        // Final validation: ensure no broken HTML tags
+        // Remove any tags that are not properly closed (except allowed ones)
+        // But be careful - don't remove valid tags
+        $text = preg_replace('/<(?!\/?(?:b|i|u|s|code|pre|a)\b)[^>]*>/i', '', $text);
+        
+        // Ensure no stray < or > characters that could break parsing
+        // But preserve valid HTML tags
+        $text = preg_replace('/(?<!<)(?<!<\/)(?<![a-z])[<>](?![a-z\/])/i', '', $text);
+        
+        // Final check: ensure all <b> tags are properly closed
+        // Count <b> and </b> tags
+        $bOpenCount = substr_count(strtolower($text), '<b>');
+        $bCloseCount = substr_count(strtolower($text), '</b>');
+        if ($bOpenCount > $bCloseCount) {
+            $text .= str_repeat('</b>', $bOpenCount - $bCloseCount);
+        }
         
         return trim($text);
     }

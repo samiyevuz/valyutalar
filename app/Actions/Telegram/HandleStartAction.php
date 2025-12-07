@@ -86,7 +86,9 @@ class HandleStartAction
                 'language' => $lang,
             ]);
 
-            $message = __('bot.welcome', ['name' => $name], $lang) . "\n\n";
+            // Escape HTML in name to prevent parsing errors
+            $safeName = htmlspecialchars($name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $message = __('bot.welcome', ['name' => $safeName], $lang) . "\n\n";
             $message .= "💱 " . __('bot.menu.rates', locale: $lang) . "\n";
             $message .= "🔄 " . __('bot.menu.convert', locale: $lang) . "\n";
             $message .= "🏦 " . __('bot.menu.banks', locale: $lang) . "\n";
@@ -94,6 +96,8 @@ class HandleStartAction
             $message .= "🔔 " . __('bot.menu.alerts', locale: $lang) . "\n";
             $message .= "👤 " . __('bot.menu.profile', locale: $lang) . "\n\n";
             $message .= __('bot.help.message', locale: $lang);
+            
+            // Note: cleanText is automatically called in sendMessage
 
             \Log::info('Welcome message built', [
                 'message_length' => strlen($message),
