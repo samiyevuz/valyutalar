@@ -45,33 +45,6 @@ class CurrencyKeyboard
         return $builder->build();
     }
 
-    public static function buildForHistory(string $lang = 'en'): array
-    {
-        return KeyboardBuilder::inline()
-            ->row()
-            ->button(Currency::USD->flag() . ' USD', 'history:USD')
-            ->button(Currency::EUR->flag() . ' EUR', 'history:EUR')
-            ->row()
-            ->button(Currency::RUB->flag() . ' RUB', 'history:RUB')
-            ->button(Currency::GBP->flag() . ' GBP', 'history:GBP')
-            ->row()
-            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
-            ->build();
-    }
-
-    public static function buildPeriodSelector(string $currency, string $lang = 'en'): array
-    {
-        return KeyboardBuilder::inline()
-            ->row()
-            ->button('7 ' . __('bot.history.days', locale: $lang), "history:{$currency}:7")
-            ->button('30 ' . __('bot.history.days', locale: $lang), "history:{$currency}:30")
-            ->row()
-            ->button('90 ' . __('bot.history.days', locale: $lang), "history:{$currency}:90")
-            ->button('365 ' . __('bot.history.days', locale: $lang), "history:{$currency}:365")
-            ->row()
-            ->button('🏠 ' . __('bot.buttons.main_menu', locale: $lang), 'menu:main')
-            ->build();
-    }
 
     public static function buildForBanks(string $lang = 'en'): array
     {

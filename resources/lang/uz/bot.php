@@ -14,7 +14,6 @@ return [
         'rates' => 'Valyuta kurslari',
         'convert' => 'Aylantirish',
         'banks' => 'Bank kurslari',
-        'history' => 'Kurslar tarixi',
         'alerts' => 'Xabarnomalar',
         'profile' => 'Hisob',
         'help' => 'Yordam',
@@ -50,22 +49,6 @@ return [
         'select_from' => 'Aylantirish uchun valyutani tanlang:',
         'select_to' => 'Aylantirish uchun valyutani tanlang:',
         'enter_amount' => 'Aylantirish uchun miqdorni kiriting:\n\nDan: :from\nGa: :to',
-    ],
-    
-    'history' => [
-        'select_currency' => 'Tarixni ko\'rish uchun valyutani tanlang:',
-        'select_period' => ':currency uchun davrni tanlang:',
-        'days' => 'kun',
-        'start' => 'Boshlanish',
-        'end' => 'Tugash',
-        'change' => 'O\'zgarish',
-        'no_data' => 'Tarixiy ma\'lumotlar mavjud emas.',
-        'trend_up' => 'O\'zgarish: Yuqoriga',
-        'trend_down' => 'O\'zgarish: Pastga',
-        'trend_stable' => 'O\'zgarish: Barqaror',
-        'period_7d' => '7 kun',
-        'period_30d' => '30 kun',
-        'period_1y' => '1 yil',
     ],
     
     'banks' => [
@@ -129,7 +112,6 @@ return [
             "/start - Botni ishga tushirish\n" .
             "/rate - Valyuta kurslari\n" .
             "/convert - Valyutani aylantirish\n" .
-            "/history - Kurslar tarixi\n" .
             "/banks - Bank kurslari\n" .
             "/alerts - Kurs xabarnomalarini boshqarish\n" .
             "/profile - Sizning hisobingiz\n\n" .

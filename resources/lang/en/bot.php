@@ -14,7 +14,6 @@ return [
         'rates' => '💱 Exchange Rates',
         'convert' => '💱 Convert Currency',
         'banks' => '🏦 Bank Rates',
-        'history' => '📊 Rate History',
         'alerts' => '🔔 Alerts',
         'profile' => '👤 Profile',
         'help' => '❓ Help',
@@ -45,22 +44,6 @@ return [
         'select_from' => 'Select currency to convert FROM:',
         'select_to' => 'Select currency to convert TO:',
         'enter_amount' => 'Enter amount to convert:\n\nFrom: :from\nTo: :to',
-    ],
-    
-    'history' => [
-        'select_currency' => 'Select currency to view history:',
-        'select_period' => 'Select period for :currency:',
-        'days' => 'days',
-        'start' => 'Start',
-        'end' => 'End',
-        'change' => 'Change',
-        'no_data' => 'No historical data available.',
-        'trend_up' => 'Trend: Up',
-        'trend_down' => 'Trend: Down',
-        'trend_stable' => 'Trend: Stable',
-        'period_7d' => '7 Days',
-        'period_30d' => '30 Days',
-        'period_1y' => '1 Year',
     ],
     
     'banks' => [
@@ -122,7 +105,6 @@ return [
             "/start - Start the bot\n" .
             "/rate - View exchange rates\n" .
             "/convert - Convert currency\n" .
-            "/history - View rate history\n" .
             "/banks - Bank exchange rates\n" .
             "/alerts - Manage price alerts\n" .
             "/profile - Your profile\n\n" .

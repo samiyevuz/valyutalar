@@ -12,7 +12,6 @@ use App\Enums\Language;
 use App\Models\TelegramUser;
 use App\Services\AlertService;
 use App\Services\BankRatesService;
-use App\Services\ChartService;
 use App\Services\CurrencyService;
 use App\Services\TelegramService;
 
@@ -24,7 +23,6 @@ class HandleCallbackAction
         private CurrencyService $currencyService,
         private BankRatesService $bankRatesService,
         private AlertService $alertService,
-        private ChartService $chartService,
     ) {}
 
     public function execute(TelegramUpdateDTO $update, TelegramUser $user, TelegramService $telegram): void
@@ -83,7 +81,6 @@ class HandleCallbackAction
                 'menu' => $this->handleMenuNavigation($chatId, $messageId, $param1, $user, $telegram),
                 'rate' => $this->handleRateSelection($chatId, $param1, $user, $telegram),
                 'banks' => $this->handleBanksSelection($chatId, $param1, $user, $telegram),
-                'history' => $this->handleHistorySelection($chatId, $param1, $param2, $user, $telegram),
                 'convert' => $this->handleConvertSelection($chatId, $param1, $param2, $user, $telegram),
                 'alerts' => $this->handleAlertsAction($chatId, $messageId, $param1, $param2, $param3, $user, $telegram),
                 'profile' => $this->handleProfileAction($chatId, $messageId, $param1, $user, $telegram),
@@ -196,13 +193,6 @@ class HandleCallbackAction
                 $messageId,
                 '🏦 ' . __('bot.banks.select_currency', locale: $lang),
                 CurrencyKeyboard::buildForBanks($lang),
-                $telegram
-            ),
-            'history' => $this->sendOrEditMessage(
-                $chatId,
-                $messageId,
-                '📊 ' . __('bot.history.select_currency', locale: $lang),
-                CurrencyKeyboard::buildForHistory($lang),
                 $telegram
             ),
             'alerts' => $this->showAlertsMenu($chatId, $messageId, $user, $telegram),
@@ -329,62 +319,6 @@ class HandleCallbackAction
         }
     }
 
-    private function handleHistorySelection(
-        int $chatId,
-        ?string $currency,
-        ?string $days,
-        TelegramUser $user,
-        TelegramService $telegram
-    ): void {
-        $messageId = $this->currentUpdate?->getCallbackMessageId();
-        
-        \Log::info('handleHistorySelection', [
-            'chat_id' => $chatId,
-            'currency' => $currency,
-            'days' => $days,
-            'message_id' => $messageId,
-        ]);
-        
-        if (empty($currency)) {
-            \Log::warning('History selection: currency is empty');
-            $telegram->sendMessage(
-                $chatId,
-                '❌ ' . __('bot.errors.currency_not_found', locale: $user->language),
-                MainMenuKeyboard::build($user->language)
-            );
-            return;
-        }
-        
-        if (empty($days)) {
-            // Show period selection
-            $this->sendOrEditMessage(
-                $chatId,
-                $messageId,
-                '📊 ' . __('bot.history.select_period', ['currency' => $currency], $user->language),
-                CurrencyKeyboard::buildPeriodSelector($currency, $user->language),
-                $telegram
-            );
-            return;
-        }
-
-        try {
-            $historyAction = app(HandleHistoryAction::class);
-            $historyAction->showHistory($chatId, $currency, (int) $days, $user, $telegram, $messageId);
-        } catch (\Exception $e) {
-            \Log::error('Error in handleHistorySelection', [
-                'currency' => $currency,
-                'days' => $days,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
-            $telegram->sendMessage(
-                $chatId,
-                '❌ ' . __('bot.errors.api_error', locale: $user->language),
-                MainMenuKeyboard::build($user->language)
-            );
-        }
-    }
 
     private function handleConvertSelection(
         int $chatId,

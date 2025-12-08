@@ -58,7 +58,6 @@ return [
         'help' => \App\Actions\Telegram\HandleHelpAction::class,
         'rate' => \App\Actions\Telegram\HandleRateAction::class,
         'convert' => \App\Actions\Telegram\HandleConvertAction::class,
-        'history' => \App\Actions\Telegram\HandleHistoryAction::class,
         'banks' => \App\Actions\Telegram\HandleBanksAction::class,
         'alerts' => \App\Actions\Telegram\HandleAlertsAction::class,
         'profile' => \App\Actions\Telegram\HandleProfileAction::class,
