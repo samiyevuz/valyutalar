@@ -68,7 +68,7 @@ return [
         'delete_failed' => 'Failed to delete alert.',
         'triggered' => 'Alert Triggered!\n\n:currency_from/:currency_to :condition :target_rate\nCurrent rate: :current_rate',
         'invalid_format' => 'Invalid alert format. Please use:\n• USD > 12500\n• EUR < 14000',
-        'instructions' => 'Create a price alert:\n\nSend me:\n• USD > 12500\n• EUR < 14000\n\nOr use the button below:',
+        'instructions' => 'To create a new alert, click the "Create Alert" button.',
         'select_currency' => 'Select currency for alert:',
         'current_rate' => 'Current rate',
         'select_condition' => 'Select condition:',

@@ -68,7 +68,7 @@ return [
         'delete_failed' => 'Не удалось удалить уведомление.',
         'triggered' => 'Уведомление сработало!\n\n:currency_from/:currency_to :condition :target_rate\nТекущий курс: :current_rate',
         'invalid_format' => 'Неверный формат уведомления. Используйте:\n• USD > 12500\n• EUR < 14000',
-        'instructions' => 'Создать уведомление о курсе:\n\nОтправьте мне:\n• USD > 12500\n• EUR < 14000\n\nИли используйте кнопку ниже:',
+        'instructions' => 'Для создания нового уведомления нажмите кнопку "Создать уведомление".',
         'select_currency' => 'Выберите валюту для уведомления:',
         'current_rate' => 'Текущий курс',
         'select_condition' => 'Выберите условие:',

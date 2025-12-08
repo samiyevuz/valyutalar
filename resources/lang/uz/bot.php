@@ -73,7 +73,7 @@ return [
         'delete_failed' => 'Xabarnomani o\'chirishda xatolik yuz berdi.',
         'triggered' => 'Xabarnoma ishga tushdi!\n\n:currency_from/:currency_to :condition :target_rate\nJoriy kurs: :current_rate',
         'invalid_format' => 'Noto\'g\'ri xabarnoma formati. Iltimos, ishlating:\n• USD > 12500\n• EUR < 14000',
-        'instructions' => 'Kurs xabarnomasini yaratish:\n\nMenga yuboring:\n• USD > 12500\n• EUR < 14000\n\nYoki quyidagi tugmani ishlating:',
+        'instructions' => 'Yangi xabarnoma yaratish uchun "Xabarnoma yaratish" tugmasini bosing.',
         'select_currency' => 'Xabarnoma uchun valyutani tanlang:',
         'current_rate' => 'Joriy kurs',
         'select_condition' => 'Shartni tanlang:',

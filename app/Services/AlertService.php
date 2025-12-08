@@ -183,10 +183,10 @@ class AlertService
         $alerts = $this->getUserAlerts($user);
 
         if ($alerts->isEmpty()) {
-            return __('bot.alerts.no_alerts');
+            return __('bot.alerts.no_alerts', locale: $user->language);
         }
 
-        $lines = ['🔔 <b>' . __('bot.alerts.your_alerts') . '</b>'];
+        $lines = ['🔔 <b>' . __('bot.alerts.your_alerts', locale: $user->language) . '</b>'];
         $lines[] = '';
 
         foreach ($alerts as $index => $alert) {
@@ -200,9 +200,27 @@ class AlertService
         }
 
         $lines[] = '';
-        $lines[] = '<i>' . __('bot.alerts.instructions', locale: $user->language) . '</i>';
+        $instructions = __('bot.alerts.instructions', locale: $user->language);
+        $lines[] = '<i>' . $instructions . '</i>';
 
-        return implode("\n", $lines);
+        $message = implode("\n", $lines);
+        
+        // Telegram message limit is 4096 characters
+        if (strlen($message) > 4096) {
+            // Truncate if too long, but keep HTML tags balanced
+            $message = substr($message, 0, 4090);
+            // Remove any incomplete HTML tags at the end
+            $message = preg_replace('/<[^>]*$/', '', $message);
+            // Ensure closing tags
+            if (strpos($message, '<i>') !== false && strpos($message, '</i>') === false) {
+                $message .= '</i>';
+            }
+            if (strpos($message, '<b>') !== false && strpos($message, '</b>') === false) {
+                $message .= '</b>';
+            }
+        }
+
+        return $message;
     }
 }
 
