@@ -23,12 +23,14 @@ Schedule::command('telegram:send-digest')
     ->timezone('Asia/Tashkent')
     ->withoutOverlapping();
 
-// Fetch currency rates every hour
+// Fetch currency rates every 5 hours
 Schedule::command('telegram:fetch-rates')
-    ->hourly()
-    ->withoutOverlapping();
+    ->cron('0 */5 * * *')
+    ->withoutOverlapping()
+    ->runInBackground();
 
-// Fetch bank rates every 2 hours
+// Fetch bank rates every 5 hours (same as currency rates)
 Schedule::command('telegram:fetch-bank-rates')
-    ->everyTwoHours()
-    ->withoutOverlapping();
+    ->cron('0 */5 * * *')
+    ->withoutOverlapping()
+    ->runInBackground();

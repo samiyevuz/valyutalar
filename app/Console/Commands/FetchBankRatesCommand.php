@@ -19,13 +19,29 @@ class FetchBankRatesCommand extends Command
 
     public function handle(): int
     {
-        $this->info('Fetching bank rates...');
+        $this->info('🔄 Fetching bank rates...');
+        $this->info('⏰ Time: ' . now('Asia/Tashkent')->format('Y-m-d H:i:s'));
 
-        $fetched = $this->bankRatesService->fetchAllBankRates();
+        try {
+            $fetched = $this->bankRatesService->fetchAllBankRates();
 
-        $this->info("✅ Done! Fetched rates from {$fetched} banks");
+            if ($fetched <= 0) {
+                $this->error('❌ No bank rates fetched!');
+                return self::FAILURE;
+            }
 
-        return self::SUCCESS;
+            $this->info("✅ Successfully fetched rates from {$fetched} banks");
+            $this->info('✅ Bank rates updated successfully!');
+            return self::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error('❌ Error fetching bank rates: ' . $e->getMessage());
+            \Log::error('FetchBankRatesCommand error', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return self::FAILURE;
+        }
     }
 }
 

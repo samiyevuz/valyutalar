@@ -19,31 +19,51 @@ class FetchCurrencyRatesCommand extends Command
 
     public function handle(): int
     {
-        $this->info('Fetching currency rates from CBU...');
+        $this->info('🔄 Fetching currency rates from CBU...');
+        $this->info('⏰ Time: ' . now('Asia/Tashkent')->format('Y-m-d H:i:s'));
 
-        $this->currencyService->refreshRates();
+        try {
+            // Clear cache to force fresh fetch
+            $this->currencyService->refreshRates();
 
-        $rates = $this->currencyService->getLiveRates();
+            $rates = $this->currencyService->getLiveRates();
 
-        $this->info("✅ Fetched " . count($rates) . " currency rates");
-
-        // Show main currencies
-        $mainCurrencies = ['USD', 'EUR', 'RUB', 'GBP'];
-
-        $data = [];
-        foreach ($rates as $rate) {
-            if (in_array($rate->currencyCode, $mainCurrencies)) {
-                $data[] = [
-                    $rate->currencyCode,
-                    number_format($rate->rate, 2),
-                    $rate->date->format('Y-m-d'),
-                ];
+            if (empty($rates)) {
+                $this->error('❌ No rates fetched!');
+                return self::FAILURE;
             }
+
+            $this->info("✅ Successfully fetched " . count($rates) . " currency rates");
+
+            // Show main currencies
+            $mainCurrencies = ['USD', 'EUR', 'RUB', 'GBP'];
+
+            $data = [];
+            foreach ($rates as $rate) {
+                if (in_array($rate->currencyCode, $mainCurrencies)) {
+                    $data[] = [
+                        $rate->currencyCode,
+                        number_format($rate->rate, 2, '.', ' '),
+                        $rate->date->format('Y-m-d'),
+                    ];
+                }
+            }
+
+            if (!empty($data)) {
+                $this->table(['Currency', 'Rate (UZS)', 'Date'], $data);
+            }
+
+            $this->info('✅ Currency rates updated successfully!');
+            return self::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error('❌ Error fetching rates: ' . $e->getMessage());
+            \Log::error('FetchCurrencyRatesCommand error', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return self::FAILURE;
         }
-
-        $this->table(['Currency', 'Rate (UZS)', 'Date'], $data);
-
-        return self::SUCCESS;
     }
 }
 
