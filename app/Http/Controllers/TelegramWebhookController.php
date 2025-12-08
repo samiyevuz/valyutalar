@@ -212,6 +212,9 @@ class TelegramWebhookController extends Controller
 
     private function processUpdate(TelegramUpdateDTO $update, TelegramUser $user): void
     {
+        // Delete old bot messages before processing new request
+        $this->deleteOldBotMessages($user, $update->getChatId());
+
         // Update user activity
         try {
             $user->updateActivity();
@@ -493,5 +496,39 @@ class TelegramWebhookController extends Controller
     {
         $text = str_replace([' ', ','], ['', '.'], trim($text));
         return max(0, (float) $text);
+    }
+
+    /**
+     * Delete old bot messages before sending new response
+     */
+    private function deleteOldBotMessages(TelegramUser $user, int $chatId): void
+    {
+        try {
+            if ($user->last_bot_message_id) {
+                try {
+                    $this->telegramService->deleteMessage($chatId, $user->last_bot_message_id);
+                    $this->forceLog('Deleted old bot message', [
+                        'chat_id' => $chatId,
+                        'message_id' => $user->last_bot_message_id,
+                    ]);
+                } catch (\Exception $e) {
+                    // Message might already be deleted or too old, ignore
+                    $this->forceLog('Failed to delete old bot message (might be already deleted)', [
+                        'chat_id' => $chatId,
+                        'message_id' => $user->last_bot_message_id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+                
+                // Clear the message ID after attempting to delete
+                $user->last_bot_message_id = null;
+                $user->saveQuietly();
+            }
+        } catch (\Exception $e) {
+            $this->forceLog('ERROR in deleteOldBotMessages', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

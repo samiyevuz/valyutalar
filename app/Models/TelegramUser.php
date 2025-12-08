@@ -26,6 +26,7 @@ class TelegramUser extends Model
         'is_blocked',
         'is_admin',
         'last_activity_at',
+        'last_bot_message_id',
     ];
 
     protected $casts = [

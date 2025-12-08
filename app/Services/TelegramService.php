@@ -80,6 +80,22 @@ class TelegramService
                 'error' => $result['error'] ?? null,
             ]);
             
+            // Save message_id to user if successful
+            if (($result['ok'] ?? false) && isset($result['result']['message_id'])) {
+                try {
+                    $user = \App\Models\TelegramUser::where('telegram_id', $chatId)->first();
+                    if ($user) {
+                        $user->last_bot_message_id = $result['result']['message_id'];
+                        $user->saveQuietly();
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to save last_bot_message_id', [
+                        'chat_id' => $chatId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+            
             return $result;
         } catch (\Exception $e) {
             Log::error('TelegramService::sendMessage exception', [
@@ -113,7 +129,25 @@ class TelegramService
             $payload['reply_markup'] = json_encode($replyMarkup);
         }
 
-        return $this->request('sendPhoto', $payload);
+        $result = $this->request('sendPhoto', $payload);
+        
+        // Save message_id to user if successful
+        if (($result['ok'] ?? false) && isset($result['result']['message_id'])) {
+            try {
+                $user = \App\Models\TelegramUser::where('telegram_id', $chatId)->first();
+                if ($user) {
+                    $user->last_bot_message_id = $result['result']['message_id'];
+                    $user->saveQuietly();
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to save last_bot_message_id from sendPhoto', [
+                    'chat_id' => $chatId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+        
+        return $result;
     }
 
     public function editMessageText(
@@ -137,7 +171,25 @@ class TelegramService
             $payload['reply_markup'] = json_encode($replyMarkup);
         }
 
-        return $this->request('editMessageText', $payload);
+        $result = $this->request('editMessageText', $payload);
+        
+        // Update message_id to user if successful (editMessageText returns the edited message)
+        if (($result['ok'] ?? false) && isset($result['result']['message_id'])) {
+            try {
+                $user = \App\Models\TelegramUser::where('telegram_id', $chatId)->first();
+                if ($user) {
+                    $user->last_bot_message_id = $result['result']['message_id'];
+                    $user->saveQuietly();
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to save last_bot_message_id from editMessageText', [
+                    'chat_id' => $chatId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+        
+        return $result;
     }
 
     public function editMessageReplyMarkup(
