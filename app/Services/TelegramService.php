@@ -80,11 +80,30 @@ class TelegramService
                 'error' => $result['error'] ?? null,
             ]);
             
-            // Save message_id to user if successful
+            // Delete old bot message and save new message_id if successful
             if (($result['ok'] ?? false) && isset($result['result']['message_id'])) {
                 try {
                     $user = \App\Models\TelegramUser::where('telegram_id', $chatId)->first();
                     if ($user) {
+                        // Delete old message if exists
+                        if ($user->last_bot_message_id) {
+                            try {
+                                $this->deleteMessage($chatId, $user->last_bot_message_id);
+                                Log::info('Deleted old bot message', [
+                                    'chat_id' => $chatId,
+                                    'old_message_id' => $user->last_bot_message_id,
+                                ]);
+                            } catch (\Exception $e) {
+                                // Message might already be deleted or too old, ignore
+                                Log::debug('Failed to delete old bot message', [
+                                    'chat_id' => $chatId,
+                                    'message_id' => $user->last_bot_message_id,
+                                    'error' => $e->getMessage(),
+                                ]);
+                            }
+                        }
+                        
+                        // Save new message_id
                         $user->last_bot_message_id = $result['result']['message_id'];
                         $user->saveQuietly();
                     }
@@ -131,11 +150,29 @@ class TelegramService
 
         $result = $this->request('sendPhoto', $payload);
         
-        // Save message_id to user if successful
+        // Delete old bot message and save new message_id if successful
         if (($result['ok'] ?? false) && isset($result['result']['message_id'])) {
             try {
                 $user = \App\Models\TelegramUser::where('telegram_id', $chatId)->first();
                 if ($user) {
+                    // Delete old message if exists
+                    if ($user->last_bot_message_id) {
+                        try {
+                            $this->deleteMessage($chatId, $user->last_bot_message_id);
+                            Log::info('Deleted old bot message from sendPhoto', [
+                                'chat_id' => $chatId,
+                                'old_message_id' => $user->last_bot_message_id,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::debug('Failed to delete old bot message from sendPhoto', [
+                                'chat_id' => $chatId,
+                                'message_id' => $user->last_bot_message_id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                    
+                    // Save new message_id
                     $user->last_bot_message_id = $result['result']['message_id'];
                     $user->saveQuietly();
                 }
